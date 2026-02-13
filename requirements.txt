@@ -1,36 +1,22 @@
-# AI Fitness Dashboard Requirements
-# Install with: pip install -r requirements.txt
-# Core
-    streamlit
-    pandas
-    plotly
-    google-genai
-    python-dotenv
-    garth
-    garminconnect
-    pillow
-    streamlit-autorefresh
-    streamlit-plotly-events
-    ```
-
-# Core
+# --- Core Data & System ---
 python-dotenv>=1.0.0
-requests>=2.31.0
 pandas>=2.0.0
+numpy>=1.24.0
+requests>=2.31.0
+pillow>=10.0.0
 
-# Dashboard
+# --- Dashboard & Visualization ---
 streamlit>=1.32.0
 plotly>=5.18.0
+streamlit-autorefresh
+streamlit-plotly-events
 
-# Garmin Integration
+# --- Garmin Integration ---
 garminconnect>=0.2.0
 garth>=0.5.0
 
-# Google Services (for Gemini AI)
+# --- Google AI (Gemini) ---
 google-genai>=1.0.0
 google-api-python-client>=2.100.0
 google-auth-httplib2>=0.2.0
 google-auth-oauthlib>=1.2.0
-
-# Utilities
-numpy>=1.24.0
