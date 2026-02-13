@@ -1,0 +1,68 @@
+🚀 Anleitung: Skywalker AI Fitness Dashboard (Mac Setup)
+Dieses System ist dein digitaler Performance-Coach. Es verbindet deine Garmin-Daten mit der Intelligenz von Google Gemini, um dein Training nach wissenschaftlichen Standards (Seiler, Mader, Coggan) zu steuern.
+
+1. Terminal & Python vorbereiten
+Öffne das Terminal auf deinem Mac (Programme > Dienstprogramme). Prüfe, ob Python installiert ist:
+Bash
+
+python3 --version
+Falls nicht installiert, lade es von python.org herunter oder nutze Homebrew: brew install python.
+
+2. Projekt einrichten
+Gehe in den Ordner, in dem das Projekt liegt, und erstelle eine „virtuelle Umgebung“. Das hält deinen Mac sauber:
+Bash
+
+# In den Projektordner wechseln
+cd /Pfad/zu/deinem/Ordner/AI_Fitness-main
+
+# Umgebung erstellen & aktivieren
+python3 -m venv venv
+source venv/bin/activate
+
+# Notwendige Software-Pakete installieren
+pip install -r requirements.txt
+
+3. Das „Gehirn“: Google Gemini API Key
+Damit die KI deine Daten analysieren kann, brauchst du einen kostenlosen Schlüssel von Google:
+	1	Geh auf Google AI Studio.
+	2	Logge dich mit deinem Google-Account ein.
+	3	Klicke links auf "Get API key".
+	4	Klicke auf "Create API key in new project".
+	5	Kopiere den Schlüssel. Du brauchst ihn im nächsten Schritt.
+
+4. Die Konfiguration (Die .env Datei)
+Erstelle im Hauptordner des Projekts eine neue Datei mit dem Namen .env. Diese Datei ist dein Tresor für Passwörter. Kopiere diesen Inhalt hinein und setze deine Daten ein:
+Plaintext
+
+GOOGLE_API_KEY=DEIN_KOPIERTER_SCHLÜSSEL
+GARMIN_EMAIL=deine_garmin_email@beispiel.de
+GARMIN_PASSWORD=dein_garmin_passwort
+SAVE_PATH=data/
+GARMIN_START_DATE=2024-08-08
+Hinweis: Diese Datei wird niemals auf GitHub hochgeladen (geschützt durch .gitignore).
+
+5. Einmalige Garmin-Anmeldung
+Damit du dein Passwort nicht ständig neu eingeben musst, verifizieren wir dich einmalig:
+Bash
+
+python3 setup_skywalker.py
+Dies erzeugt einen Ordner namens .garth. Er enthält deine Sitzungs-Tokens. Teile diesen Ordner niemals mit anderen!
+
+6. Daten holen & Dashboard starten
+Bevor das Dashboard etwas anzeigen kann, musst du deine Daten von Garmin herunterladen:
+	1	Trainings-Daten: python3 sync_garmin.py
+	2	Gesundheits-Daten: python3 sync_health.py
+Jetzt das Dashboard starten:
+Bash
+
+streamlit run skywalker_dashboard.py
+Dein Browser öffnet sich automatisch. Willkommen in der Skywalker-Zentrale!
+
+🛡️ Wichtiger Hinweis zum Datenschutz
+	•	.env und .garth/ enthalten deine Passwörter/Zugänge. Sie bleiben nur auf deinem Mac.
+	•	.csv Dateien enthalten deine Herzfrequenz, Schlafdaten etc. Diese werden durch die mitgelieferte .gitignore Datei automatisch vor einem Upload auf GitHub geschützt.
+📈 Die Philosophie dahinter
+Dein Training wird nach dem pyramidalen Modell bewertet:
+	•	70% Basis (Z1/Z2): Fettstoffwechsel & Zellaufbau (nach Mader).
+	•	20% Threshold (SweetSpot): FTP-Effizienz (nach Coggan).
+	•	10% HIT: Maximaler Reiz (nach Seiler/Burgomaster).
