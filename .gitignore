@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]
@@ -140,10 +141,37 @@ celerybeat.pid
 .venv
 env/
 venv/
+=======
+# Environment variables and secrets
+.env
+.env.local
+.env.*.local
+.env.production
+
+# Authentication tokens and credentials
+.garth
+.garth/
+token.pickle
+credentials.json
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+
+# Virtual environments
+venv/
+env/
+.venv/
+>>>>>>> e54aed9 (Initial commit: Skywalker AI Dashboard with ZWO Coaching)
 ENV/
 env.bak/
 venv.bak/
 
+<<<<<<< HEAD
 # Spyder project settings
 .spyderproject
 .spyproject
@@ -205,3 +233,29 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+=======
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS-specific files
+.DS_Store
+Thumbs.db
+
+# Data files (All private training data)
+*.csv
+*.json
+!debug_activity.json  # (Optional: Falls du ein Beispiel-JSON zeigen willst)
+
+# Logs
+*.log
+cron_log.txt
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+>>>>>>> e54aed9 (Initial commit: Skywalker AI Dashboard with ZWO Coaching)
