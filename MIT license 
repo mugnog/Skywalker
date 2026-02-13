@@ -28,7 +28,7 @@ ADDITIONAL DISCLAIMERS
 This software generates physical training plans based on data inputs. The creators of this software are not medical professionals. The generated workouts are for informational purposes only and should not replace professional medical advice or a personal trainer's supervision. Consult a physician before starting any new exercise program.
 
 2. Third-Party Affiliation
-This project is an independent open-source tool and is NOT affiliated with, endorsed by, or associated with Garmin Ltd., Hevy, or Google. "Garmin" and "Hevy" are trademarks of their respective owners.
+This project is an independent open-source tool and is NOT affiliated with, endorsed by, or associated with Garmin Ltd., or Google. "Garmin" are trademarks of their respective owners.
 
 3. API Usage & Terms of Service
-This software utilizes unofficial methods (web scraping) to access certain data. Users are responsible for ensuring their use of this software complies with the Terms of Service of Garmin Connect, Hevy, and Google Gemini. The authors assume no liability for account bans or API revocations resulting from the use of this software.
+This software utilizes unofficial methods (web scraping) to access certain data. Users are responsible for ensuring their use of this software complies with the Terms of Service of Garmin Connect and Google Gemini. The authors assume no liability for account bans or API revocations resulting from the use of this software.
