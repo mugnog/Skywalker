@@ -4,6 +4,8 @@
 **Skywalker** is a professional-grade fitness intelligence platform designed for cyclists. It bridges the gap between raw data and actionable coaching. By combining **Garmin Connect** data with the **Google Gemini 2.0 AI**, Skywalker acts as a virtual coach that understands your physiology, fatigue, and life stress.
 
 ---
+ Please Read the HowToInstall
+---
 
 ## 🧠 The Skywalker Philosophy
 Skywalker isn't just a tracker; it's a training system based on the latest sports science:
