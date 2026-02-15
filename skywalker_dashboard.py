@@ -602,12 +602,21 @@ with tab1:
     DEINE AUFGABE:
     Analysiere die Daten des Athleten (Sleep Score, HRV, Daily Check-in) und passe die Einheit exakt an den Frischezustand an.
 
+    DEINE PRIORITÄTEN (STRENG EINHALTEN):
+    1. DAS WOCHEN-BUDGET: Ein Athlet hat meist nur 2 "Joker" pro Woche für Intensität (Sweet Spot oder HIT). 
+    2. DER VOLUMEN-FOKUS: Da das Ziel 4-6h Fahrten sind, ist Zone 2 (Z2) dein Standard-Werkzeug. 
+    3. VLAMAX-KONTROLLE: Wir wollen die VLamax senken. Das erfordert lange, ruhige Fahrten.
+
+    LOGIK-FILTER FÜR DEINE ENTSCHEIDUNG:
+    - IST ES WOCHENENDE (FR-SO)? -> Schlage vor allem langes Zone 2 Training vor (Volumen vor Intensität).
+    - WAR GESTERN SCHON HART? -> Heute dann eher Zone 2, egal wie gut der Schlaf war.
+
     DEINE WERKZEUGKISTE (Nur diese Optionen nutzen):
-    1. Basis & FatMax (Seiler/Mader): Lange, ruhige Fahrten (Zone 1/2) für Fettstoffwechsel.
+    1. Basis & FatMax (Seiler/Mader): Lange, ruhige Fahrten (Zone 1/2) für Fettstoffwechsel, das soll 70% aller Empfehlungen ausmachen,
     2. z2 Grundlagenfahrten mit 60-70% der FTP 
-    3. Z2 + Burgomaster-Sprints: Grundlagenfahrt mit 3-4 kurzen "All-out" Sprints (30s), um Mitochondrien zu triggern ohne Ermüdung.
+    3. Z2 + Burgomaster-Sprints: Grundlagenfahrt mit 3-4 kurzen "All-out" Sprints (30s), um Mitochondrien zu triggern ohne Ermüdung. Zwichen den Sprints bitte 5 Minuten normale Grundlagenfahrt.
     3. Sweet Spot (Coggan): Blöcke im Bereich 88-94% FTP zur VLamax-Senkung und Effizienz-Steigerung.
-    4. HIT (Rønnestad): 30/15 Intervalle für maximale VO2max (nur wenn Athlet frisch!).
+    4. HIT (Rønnestad): 30/15 Intervalle für maximale VO2max (nur wenn Athlet frisch!).Nur wenn TSB positiv (>0) UND Schlaf > 7
 
     LOGIK FÜR DIE INTENSITÄT (AUTOMATIK):
     - Wenn Sleep/Gesundheit > 7 & TSB positiv -> Wähle HIT oder harten Sweet Spot.
@@ -944,3 +953,32 @@ with tab5:
     c_s1, c_s2 = st.columns([1, 1])
     c_s1.caption(f"Basis: {start_point}W")
     c_s2.markdown(f"<p style='text-align: right; color: #00C853; font-size: 20px; font-weight: bold;'>Ziel: {target_ftp}W</p>", unsafe_allow_html=True)
+
+    st.divider()
+    st.header("📊 Trainings-Verteilung (Last 7 Days)")
+
+    if df_act is not None and not df_act.empty:
+        # Wir kategorisieren die Einheiten grob nach Intensität (basierend auf IF/NP falls vorhanden, sonst Schätzung)
+        df_dist = df_data[df_data['Date'] >= one_week_ago].copy()
+        
+        # Einfache Logik: Wir schauen uns das Verhältnis von Last zu Dauer an oder nutzen die Namen
+        # Hier eine simple Kategorisierung für das Dashboard:
+        def categorize_load(row):
+            name = str(row['activityName']).lower()
+            if any(x in name for x in ['sweet', 'intervals', 'hit', 'vo2', 'sprint', 'test']):
+                return "Intensität (HIT/SS)"
+            return "Basis (Zone 2)"
+
+        df_dist['Type'] = df_dist.apply(categorize_load, axis=1)
+        dist_chart = px.pie(df_dist, values='Load', names='Type', 
+                            title="Pyramiden-Check (Ziel: 80% Basis)",
+                            color='Type',
+                            color_discrete_map={'Basis (Zone 2)': '#00C853', 'Intensität (HIT/SS)': '#D50000'})
+        
+        st.plotly_chart(dist_chart, use_container_width=True)
+        
+        z2_share = (df_dist[df_dist['Type'] == "Basis (Zone 2)"]['Load'].sum() / df_dist['Load'].sum()) * 100 if df_dist['Load'].sum() > 0 else 0
+        if z2_share < 70:
+            st.warning(f"Achtung: Nur {z2_share:.1f}% Basis-Training. Du trainierst zu hart für das Mader-Modell!")
+        else:
+            st.success(f"Top! {z2_share:.1f}% im Basis-Bereich. Deine Mitochondrien danken es dir.")
