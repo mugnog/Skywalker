@@ -566,7 +566,9 @@ with tab1:
     3. LIVE-COACHING (Textevents): 
        - JEDER Block (Warmup, SteadyState, etc.) MUSS mindestens 3 <textevent> enthalten.
        - Diese müssen INNERHALB des Intervall-Tags stehen.
-    4. KORREKTES STRUKTUR-BEISPIEL:
+    4. Jedes Workout muss mit <Warmup> beginnen und mit <Cooldown> enden, jeweils 8 MInuten.
+    5. Nach dem WarmUp soll eine Aktivierung erfolgen, siehe Struktur-Beispiel
+    6. KORREKTES STRUKTUR-BEISPIEL:
        <workout_file>
          <author>Skywalker</author>
          <name>Skywalker_Session</name>
@@ -589,6 +591,11 @@ with tab1:
            </CoolDown>
          </workout>
        </workout_file>
+    7. Ein <Repeat>-Tag darf NIEMALS allein stehen. Er muss <IntervalsT> umschließen oder durch <IntervalsT> ersetzt werden.
+    8. Für Sprints (Burgomaster/HIT) nutze AUSSCHLIESSLICH: 
+       <IntervalsT Repeat="6" OnDuration="30" OffDuration="480" OnPower="1.7" OffPower="0.6" />
+    
+    
     """
 
     curr_rpe = st.session_state.get('rpe_val', 5)
