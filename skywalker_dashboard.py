@@ -201,67 +201,56 @@ if df_act is not None and not df_act.empty:
 # =====================================================
 # 4. ZWO VALIDATOR (SKYWALKER PRO EDITION)
 # =====================================================
-def validate_zwo(xml_string: str):
+    
+    def validate_zwo(xml_string: str):
     try:
-        # 1. Reinigung
+        # 1. Grobe Reinigung des KI-Outputs
         if "<workout_file>" in xml_string:
             xml_string = xml_string[xml_string.find("<workout_file>"):]
         if "</workout_file>" in xml_string:
             xml_string = xml_string[:xml_string.find("</workout_file>") + 15]
 
-        # 2. Parsen
+        # 2. Parsen des XML
         root = ET.fromstring(xml_string)
+        workout_node = root.find("workout")
+        
+        # --- SICHERHEITS-CHECK: Leere Tags finden ---
+        if workout_node is not None:
+            # Wir prüfen, ob ein Repeat-Tag existiert, der keine Kinder (Intervalle) hat
+            for repeat in workout_node.findall("Repeat"):
+                if len(list(repeat)) == 0:
+                    return False, "⚠️ KRITISCH: Leerer <Repeat>-Tag ohne Intervalle gefunden!", xml_string
+            
+            # Wir prüfen, ob überhaupt Trainings-Schritte vorhanden sind
+            if len(list(workout_node)) == 0:
+                return False, "⚠️ KRITISCH: Der Workout-Bereich ist komplett leer!", xml_string
+
+        # 3. Struktur-Wiederherstellung (Skywalker Pro Logik)
         new_root = ET.Element("workout_file")
         
-        # --- METADATEN ---
+        # Metadaten kopieren
         ET.SubElement(new_root, "author").text = root.findtext("author") or "Skywalker"
-        ET.SubElement(new_root, "name").text = root.findtext("name") or "Skywalker Workout"
-        
-        desc_text = root.findtext("description") or "Professionelles Training by Skywalker"
-        ET.SubElement(new_root, "description").text = desc_text
-        
+        ET.SubElement(new_root, "name").text = root.findtext("name") or "Skywalker Session"
+        ET.SubElement(new_root, "description").text = root.findtext("description") or "Training by Skywalker"
         ET.SubElement(new_root, "sportType").text = "bike"
         
-        # Tags übernehmen
-        tags_node = root.find("tags")
-        new_tags = ET.SubElement(new_root, "tags")
-        if tags_node is not None:
-            for t in tags_node.findall("tag"):
-                ET.SubElement(new_tags, "tag", t.attrib)
-        
-        # --- WORKOUT-BEREICH (MIT TEXT-EVENTS) ---
-        workout_node = root.find("workout")
+        # Workout-Schritte säubern und neu aufbauen
         new_workout = ET.SubElement(new_root, "workout")
-
         if workout_node is not None:
             for child in workout_node:
-                new_attrs = {}
-                for k, v in child.attrib.items():
-                    kl = k.lower()
-                    if kl == "duration": new_attrs["Duration"] = v
-                    elif kl == "power": new_attrs["Power"] = v
-                    elif kl == "powerlow": new_attrs["PowerLow"] = v
-                    elif kl == "powerhigh": new_attrs["PowerHigh"] = v
-                    elif kl in ["repeat", "onpower", "offpower", "onduration", "offduration"]:
-                        new_attrs[k[0].upper() + k[1:]] = v
-                    else:
-                        new_attrs[k] = v
-                
-                new_attrs["pace"] = "0"
-                step_node = ET.SubElement(new_workout, child.tag, new_attrs)
-                
-                # WICHTIG: Hier werden die Coaching-Nachrichten gerettet!
-                for subchild in child.findall("textevent"):
-                    ET.SubElement(step_node, "textevent", subchild.attrib)
+                # Hier werden nur gültige Tags mit Inhalt übernommen
+                step_node = ET.SubElement(new_workout, child.tag, child.attrib)
+                for subchild in child:
+                    ET.SubElement(step_node, subchild.tag, subchild.attrib)
 
-        # 3. Schöne Formatierung
+        # 4. Schöne Formatierung für Zwift
         ET.indent(new_root, space="    ", level=0)
         final_xml = ET.tostring(new_root, encoding="unicode", method="xml")
         
-        return True, "OK", final_xml
+        return True, "Check bestanden: XML ist valide.", final_xml
 
     except Exception as e:
-        return False, str(e), xml_string
+        return False, f"XML-Strukturfehler: {str(e)}", xml_string
 
 # =====================================================
 # 5. PROMPT
@@ -567,8 +556,21 @@ with tab1:
        - JEDER Block (Warmup, SteadyState, etc.) MUSS mindestens 3 <textevent> enthalten.
        - Diese müssen INNERHALB des Intervall-Tags stehen.
     4. Jedes Workout muss mit <Warmup> beginnen und mit <Cooldown> enden, jeweils 8 MInuten.
-    5. Nach dem WarmUp soll eine Aktivierung erfolgen, siehe Struktur-Beispiel
-    6. KORREKTES STRUKTUR-BEISPIEL:
+    5. Nach dem WarmUp soll eine Aktivierung erfolgen, in der Form
+       AKTIVIERUNGS-TREPPE (Standard): Jedes Training beginnt nach dem 10-minütigen Warmup (55%) mit einer Rampe:
+       - 3 Min @ 60% FTP
+       - 3 Min @ 70% FTP
+       - 3 Min @ 80% FTP
+       - 3 Min @ 90% FTP
+       Nutze hierfür ausschließlich <SteadyState> Blöcke.
+    6. TEXTEVENTS: Die Texte in den <textevent> Tags müssen bei jedem Workout variieren. 
+    7. THEMEN-POOLS: Wechsle zwischen verschiedenen Coaching-Stilen:
+       - Technisch: Fokus auf Trittfrequenz, Aerodynamik und runden Tritt.
+       - Physiologisch: Erklärungen zu Mitochondrien, VLamax und Fettstoffwechsel (Mader/Seiler).
+       - Mental: Motivation für einen Chirurgen ("Konzentration wie im OP", "Präzision im Tritt").
+       - Humorvoll: Leichte Sprüche ("Pedalritter, auf zum FTP-Kreuzzug!", "Heute jagen wir die Wattgeister!").
+       - Ruhe: Einfach nur Ruhephasen ankündigen.
+    8. KORREKTES STRUKTUR-BEISPIEL:
        <workout_file>
          <author>Skywalker</author>
          <name>Skywalker_Session</name>
@@ -580,7 +582,12 @@ with tab1:
              <textevent timeoffset="0" message="Willkommen, Skywalker! Fokus auf den Tritt."/>
              <textevent timeoffset="300" message="Hälfte vom Warmup. Schultern locker lassen."/>
              <textevent timeoffset="580" message="Bereit machen für den Hauptteil!"/>
-           </Warmup>
+           </Warmup> 
+        <SteadyState Duration="180" Power="0.6" pace="0"/>
+        <SteadyState Duration="180" Power="0.7" pace="0"/>
+        <SteadyState Duration="180" Power="0.8" pace="0"/>
+        <SteadyState Duration="180" Power="0.9 pace="0"/>
+        <SteadyState Duration="300" Power="0.55" pace="0"/>
            <SteadyState Duration="1200" Power="0.9">
              <textevent timeoffset="0" message="Start Sweet Spot! Wir bauen deine 250W FTP."/>
              <textevent timeoffset="600" message="Halbzeit! Bleib stabil, das ist der Mader-Reiz."/>
@@ -591,8 +598,8 @@ with tab1:
            </CoolDown>
          </workout>
        </workout_file>
-    7. Ein <Repeat>-Tag darf NIEMALS allein stehen. Er muss <IntervalsT> umschließen oder durch <IntervalsT> ersetzt werden.
-    8. Für Sprints (Burgomaster/HIT) nutze AUSSCHLIESSLICH: 
+    9. Ein <Repeat>-Tag darf NIEMALS allein stehen. Er muss <IntervalsT> umschließen oder durch <IntervalsT> ersetzt werden.
+    10. Für Sprints (Burgomaster/HIT) nutze AUSSCHLIESSLICH: 
        <IntervalsT Repeat="6" OnDuration="30" OffDuration="480" OnPower="1.7" OffPower="0.6" />
     
     
