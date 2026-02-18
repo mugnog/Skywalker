@@ -129,7 +129,7 @@ def manual_data_upload():
 uploaded_tp_image = manual_data_upload()
 
 # =====================================================
-# 3. DATEN LADEN (KORRIGIERT: NEU OBEN)
+# 3. DATEN LADEN (FIX: KEINE SCHRITTE-INFLATION)
 # =====================================================
 @st.cache_data(ttl=60)
 def load_all_data():
@@ -140,16 +140,17 @@ def load_all_data():
     if df_s is not None:
         df_s["Date"] = pd.to_datetime(df_s["Date"])
         
-        # Reinigung der Schritte (Punkte entfernen)
         step_col = "Steps" if "Steps" in df_s.columns else "Schritte"
         if step_col in df_s.columns:
-            df_s[step_col] = df_s[step_col].astype(str).str.replace('.', '').str.replace(',', '')
+            # Sauberer Fix: Wir wandeln erst in Zahlen um. 
+            # Falls es Text ist, entfernen wir NUR Tausender-Trennzeichen.
+            df_s[step_col] = df_s[step_col].astype(str).str.replace(r'(\d)\.(\d{3})', r'\1\2', regex=True)
             df_s["Steps_num"] = pd.to_numeric(df_s[step_col], errors="coerce").fillna(0)
         
-        # Dubletten entfernen & Gruppieren (Maximum pro Tag)
+        # Gruppieren (Maximum pro Tag), Dubletten weg
         df_s = df_s.groupby("Date").max(numeric_only=True).reset_index()
         
-        # SORTIERUNG: Neu oben für die Anzeige
+        # SORTIERUNG FÜR DICH: Neu oben
         df_s = df_s.sort_values("Date", ascending=False)
         
         df_s["Sleep_num"] = pd.to_numeric(df_s["Sleep Score"], errors="coerce")
@@ -157,7 +158,7 @@ def load_all_data():
 
     if df_a is not None:
         df_a["Date"] = pd.to_datetime(df_a["Date"])
-        # SORTIERUNG: Neu oben
+        # SORTIERUNG FÜR DICH: Neu oben
         df_a = df_a.sort_values("Date", ascending=False)
         if "distance" in df_a.columns:
             df_a["KM"] = (pd.to_numeric(df_a["distance"], errors="coerce") / 1000).round(2)
@@ -165,7 +166,6 @@ def load_all_data():
     return df_s, df_a, df_c
 
 df_stats, df_act, df_checkin = load_all_data()
-
 
 # =====================================================
 # ZENTRALE PERFORMANCE-BERECHNUNG (Inkl. Chronologie-Fix)
