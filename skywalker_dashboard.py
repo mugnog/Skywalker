@@ -129,7 +129,7 @@ def manual_data_upload():
 uploaded_tp_image = manual_data_upload()
 
 # =====================================================
-# 3. DATEN LADEN (FIX: KEINE SCHRITTE-INFLATION)
+# 3. DATEN LADEN (ABSOLUTE WERTE GARANTIERT)
 # =====================================================
 @st.cache_data(ttl=60)
 def load_all_data():
@@ -138,27 +138,27 @@ def load_all_data():
     df_c = pd.read_csv(FILE_CHECKIN) if os.path.exists(FILE_CHECKIN) else None
 
     if df_s is not None:
-        df_s["Date"] = pd.to_datetime(df_s["Date"])
+        df_s["Date"] = pd.to_datetime(df_s["Date"]).dt.normalize()
         
         step_col = "Steps" if "Steps" in df_s.columns else "Schritte"
         if step_col in df_s.columns:
-            # Sauberer Fix: Wir wandeln erst in Zahlen um. 
-            # Falls es Text ist, entfernen wir NUR Tausender-Trennzeichen.
-            df_s[step_col] = df_s[step_col].astype(str).str.replace(r'(\d)\.(\d{3})', r'\1\2', regex=True)
-            df_s["Steps_num"] = pd.to_numeric(df_s[step_col], errors="coerce").fillna(0)
+            # 1. Alles zu Text machen
+            # 2. ALLE Punkte und Kommata entfernen (aus "7.722" wird "7722")
+            df_s["Steps_num"] = df_s[step_col].astype(str).str.replace(r'[.,]', '', regex=True)
+            # 3. In echte Ganzzahl umwandeln
+            df_s["Steps_num"] = pd.to_numeric(df_s["Steps_num"], errors="coerce").fillna(0).astype(int)
         
-        # Gruppieren (Maximum pro Tag), Dubletten weg
+        # Falls doch Dubletten da sind: Maximum pro Tag nehmen
         df_s = df_s.groupby("Date").max(numeric_only=True).reset_index()
         
-        # SORTIERUNG FÜR DICH: Neu oben
+        # DEIN WUNSCH: Neu oben für die Tabellen
         df_s = df_s.sort_values("Date", ascending=False)
         
         df_s["Sleep_num"] = pd.to_numeric(df_s["Sleep Score"], errors="coerce")
         df_s["RHR_num"] = pd.to_numeric(df_s["RHR"], errors="coerce")
 
     if df_a is not None:
-        df_a["Date"] = pd.to_datetime(df_a["Date"])
-        # SORTIERUNG FÜR DICH: Neu oben
+        df_a["Date"] = pd.to_datetime(df_a["Date"]).dt.normalize()
         df_a = df_a.sort_values("Date", ascending=False)
         if "distance" in df_a.columns:
             df_a["KM"] = (pd.to_numeric(df_a["distance"], errors="coerce") / 1000).round(2)
@@ -879,16 +879,32 @@ with tab3:
             st.plotly_chart(fig_sleep, width='stretch')
 
 # =====================================================
-# TAB 4 – SCHRITTE
+# TAB 4 – SCHRITTE (STRIKTE ABSOLUTWERTE)
 # =====================================================
 with tab4:
     if df_stats is not None:
-        # FIX: Auch hier erst sortieren
-        df_steps = df_stats.sort_values("Date", ascending=True).tail(30)
+        # Für die Grafik zeitlich korrekt sortieren (links alt, rechts neu)
+        df_chart = df_stats.sort_values("Date", ascending=True).tail(30)
         
-        fig_steps = px.bar(df_steps, x="Date", y="Steps_num", color_discrete_sequence=['#39FF14'], text_auto='.2s')
-        fig_steps.update_layout(plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)')
-        st.plotly_chart(fig_steps, width='stretch')
+        fig_steps = px.bar(
+            df_chart, 
+            x="Date", 
+            y="Steps_num", # Greift exakt die 7722 ab
+            title="Tägliche Schritte (Absoluter Wert)",
+            color_discrete_sequence=['#39FF14'],
+            text_auto=True # Zeigt die volle Zahl über dem Balken
+        )
+        
+        fig_steps.update_layout(
+            plot_bgcolor='rgba(0,0,0,0)', 
+            paper_bgcolor='rgba(0,0,0,0)',
+            yaxis_title="Anzahl Schritte (Keine %!)",
+            hovermode="x unified"
+        )
+        # Wir zwingen die Y-Achse, bei 0 zu starten und keine Prozente zu raten
+        fig_steps.update_yaxes(automargin=True)
+        
+        st.plotly_chart(fig_steps, use_container_width=True)
 
 # =====================================================
 # TAB 5 – TRENDS & PERFORMANCE (CTL/ATL/TSB)
