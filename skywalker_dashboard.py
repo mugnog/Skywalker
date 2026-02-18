@@ -129,7 +129,7 @@ def manual_data_upload():
 uploaded_tp_image = manual_data_upload()
 
 # =====================================================
-# 3. DATEN LADEN (ABSOLUTE WERTE GARANTIERT)
+# 3. DATEN LADEN (BACK TO BASICS - OHNE REINIGUNGS-FEHLER)
 # =====================================================
 @st.cache_data(ttl=60)
 def load_all_data():
@@ -142,16 +142,13 @@ def load_all_data():
         
         step_col = "Steps" if "Steps" in df_s.columns else "Schritte"
         if step_col in df_s.columns:
-            # 1. Alles zu Text machen
-            # 2. ALLE Punkte und Kommata entfernen (aus "7.722" wird "7722")
-            df_s["Steps_num"] = df_s[step_col].astype(str).str.replace(r'[.,]', '', regex=True)
-            # 3. In echte Ganzzahl umwandeln
-            df_s["Steps_num"] = pd.to_numeric(df_s["Steps_num"], errors="coerce").fillna(0).astype(int)
+            # Da deine Datei laut Screenshot reine Zahlen hat: Direkt umwandeln!
+            df_s["Steps_num"] = pd.to_numeric(df_s[step_col], errors="coerce").fillna(0).astype(int)
         
-        # Falls doch Dubletten da sind: Maximum pro Tag nehmen
+        # Falls ein Tag doppelt vorkommt: Wir nehmen nur den höchsten Wert
         df_s = df_s.groupby("Date").max(numeric_only=True).reset_index()
         
-        # DEIN WUNSCH: Neu oben für die Tabellen
+        # DEIN WUNSCH: Neu oben für die Tabellen-Ansicht
         df_s = df_s.sort_values("Date", ascending=False)
         
         df_s["Sleep_num"] = pd.to_numeric(df_s["Sleep Score"], errors="coerce")
@@ -159,27 +156,30 @@ def load_all_data():
 
     if df_a is not None:
         df_a["Date"] = pd.to_datetime(df_a["Date"]).dt.normalize()
+        # Neu oben
         df_a = df_a.sort_values("Date", ascending=False)
         if "distance" in df_a.columns:
             df_a["KM"] = (pd.to_numeric(df_a["distance"], errors="coerce") / 1000).round(2)
 
     return df_s, df_a, df_c
 
+# Variablen-Zuweisung
 df_stats, df_act, df_checkin = load_all_data()
 
 # =====================================================
-# ZENTRALE PERFORMANCE-BERECHNUNG (Inkl. Chronologie-Fix)
+# ZENTRALE PERFORMANCE-BERECHNUNG (FIX: df_data definiert)
 # =====================================================
 curr_ctl, curr_atl, curr_tsb, weekly_load = 0, 0, 0, 0
 est_ftp = 230 
 
 if df_act is not None and not df_act.empty:
-    # WICHTIG: Für die Mathe-Berechnung müssen die Daten aufsteigend sein!
+    # 1. Wir erstellen die chronologische Arbeitskopie
     df_perf = df_act.sort_values("Date", ascending=True).copy()
     
-    df_data = df_perf.copy() # Nutzt jetzt die chronologischen Daten
+    # 2. WICHTIG: Wir definieren df_data, damit der Rest des Codes funktioniert
+    df_data = df_perf.copy() 
     
-    # --- 1. FTP SCHÄTZUNG ---
+    # --- FTP SCHÄTZUNG ---
     thirty_days_ago = pd.Timestamp.now() - pd.Timedelta(days=30)
     recent_acts = df_data[df_data['Date'] >= thirty_days_ago].copy()
     recent_acts['normPower'] = pd.to_numeric(recent_acts['normPower'], errors='coerce')
@@ -187,12 +187,12 @@ if df_act is not None and not df_act.empty:
     if not recent_acts.empty and recent_acts['normPower'].max() > 0:
         est_ftp = int(recent_acts['normPower'].max() * 0.95)
 
-    # --- 2. WOCHEN-LOAD ---
+    # --- WOCHEN-LOAD ---
     df_data['Load'] = pd.to_numeric(df_data['activityTrainingLoad'], errors='coerce').fillna(0)
     one_week_ago = pd.Timestamp.now() - pd.Timedelta(days=7)
     weekly_load = round(df_data[df_data['Date'] >= one_week_ago]['Load'].sum(), 1)
     
-    # --- 3. CTL/ATL/TSB BERECHNUNG ---
+    # --- CTL/ATL/TSB BERECHNUNG ---
     daily_load = df_data.groupby('Date')['Load'].sum().reset_index()
     if not daily_load.empty:
         idx = pd.date_range(daily_load['Date'].min(), pd.Timestamp.now())
@@ -889,21 +889,20 @@ with tab4:
         fig_steps = px.bar(
             df_chart, 
             x="Date", 
-            y="Steps_num", # Greift exakt die 7722 ab
-            title="Tägliche Schritte (Absoluter Wert)",
-            color_discrete_sequence=['#39FF14'],
-            text_auto=True # Zeigt die volle Zahl über dem Balken
+            y="Steps_num", # EXAKT die Spalte mit den echten Zahlen
+            title="Schritte (Absoluter Wert)",
+            color_discrete_sequence=['#39FF14']
         )
+        
+        # WICHTIG: Keine automatische Abkürzung (kein 7.7k), sondern echte Zahlen
+        fig_steps.update_traces(texttemplate='%{y}', textposition='outside')
         
         fig_steps.update_layout(
             plot_bgcolor='rgba(0,0,0,0)', 
             paper_bgcolor='rgba(0,0,0,0)',
-            yaxis_title="Anzahl Schritte (Keine %!)",
+            yaxis_title="Schritte",
             hovermode="x unified"
         )
-        # Wir zwingen die Y-Achse, bei 0 zu starten und keine Prozente zu raten
-        fig_steps.update_yaxes(automargin=True)
-        
         st.plotly_chart(fig_steps, use_container_width=True)
 
 # =====================================================
