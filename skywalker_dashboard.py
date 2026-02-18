@@ -129,7 +129,7 @@ def manual_data_upload():
 uploaded_tp_image = manual_data_upload()
 
 # =====================================================
-# 3. DATEN LADEN
+# 3. DATEN LADEN (KORRIGIERT: NEU OBEN)
 # =====================================================
 @st.cache_data(ttl=60)
 def load_all_data():
@@ -139,17 +139,28 @@ def load_all_data():
 
     if df_s is not None:
         df_s["Date"] = pd.to_datetime(df_s["Date"])
+        
+        # Reinigung der Schritte (Punkte entfernen)
+        step_col = "Steps" if "Steps" in df_s.columns else "Schritte"
+        if step_col in df_s.columns:
+            df_s[step_col] = df_s[step_col].astype(str).str.replace('.', '').str.replace(',', '')
+            df_s["Steps_num"] = pd.to_numeric(df_s[step_col], errors="coerce").fillna(0)
+        
+        # Dubletten entfernen & Gruppieren (Maximum pro Tag)
+        df_s = df_s.groupby("Date").max(numeric_only=True).reset_index()
+        
+        # SORTIERUNG: Neu oben für die Anzeige
+        df_s = df_s.sort_values("Date", ascending=False)
+        
         df_s["Sleep_num"] = pd.to_numeric(df_s["Sleep Score"], errors="coerce")
         df_s["RHR_num"] = pd.to_numeric(df_s["RHR"], errors="coerce")
-        df_s["Steps_num"] = pd.to_numeric(df_s["Steps"], errors="coerce")
 
     if df_a is not None:
         df_a["Date"] = pd.to_datetime(df_a["Date"])
+        # SORTIERUNG: Neu oben
+        df_a = df_a.sort_values("Date", ascending=False)
         if "distance" in df_a.columns:
             df_a["KM"] = (pd.to_numeric(df_a["distance"], errors="coerce") / 1000).round(2)
-
-    if df_c is not None:
-        df_c["Date"] = pd.to_datetime(df_c["Date"])
 
     return df_s, df_a, df_c
 
@@ -157,19 +168,18 @@ df_stats, df_act, df_checkin = load_all_data()
 
 
 # =====================================================
-# ZENTRALE PERFORMANCE-BERECHNUNG (Inkl. FTP-Schätzung Fix)
+# ZENTRALE PERFORMANCE-BERECHNUNG (Inkl. Chronologie-Fix)
 # =====================================================
 curr_ctl, curr_atl, curr_tsb, weekly_load = 0, 0, 0, 0
-est_ftp = 230  # Standardwert als Fallback
+est_ftp = 230 
 
 if df_act is not None and not df_act.empty:
-    df_perf = df_act.copy()
-    df_perf['Date'] = pd.to_datetime(df_perf['Date'])
+    # WICHTIG: Für die Mathe-Berechnung müssen die Daten aufsteigend sein!
+    df_perf = df_act.sort_values("Date", ascending=True).copy()
     
-    # Wir nehmen die Daten (iloc[1:] überspringt die Einheiten-Zeile)
-    df_data = df_perf.iloc[1:].copy()
+    df_data = df_perf.copy() # Nutzt jetzt die chronologischen Daten
     
-    # --- 1. FTP SCHÄTZUNG (JETZT GANZ OBEN BERECHNET) ---
+    # --- 1. FTP SCHÄTZUNG ---
     thirty_days_ago = pd.Timestamp.now() - pd.Timedelta(days=30)
     recent_acts = df_data[df_data['Date'] >= thirty_days_ago].copy()
     recent_acts['normPower'] = pd.to_numeric(recent_acts['normPower'], errors='coerce')
@@ -177,7 +187,7 @@ if df_act is not None and not df_act.empty:
     if not recent_acts.empty and recent_acts['normPower'].max() > 0:
         est_ftp = int(recent_acts['normPower'].max() * 0.95)
 
-    # --- 2. WOCHEN-LOAD BERECHNEN ---
+    # --- 2. WOCHEN-LOAD ---
     df_data['Load'] = pd.to_numeric(df_data['activityTrainingLoad'], errors='coerce').fillna(0)
     one_week_ago = pd.Timestamp.now() - pd.Timedelta(days=7)
     weekly_load = round(df_data[df_data['Date'] >= one_week_ago]['Load'].sum(), 1)
@@ -203,60 +213,59 @@ if df_act is not None and not df_act.empty:
 # =====================================================
     
 def validate_zwo(xml_string: str):
+    """
+    Validiert das von der KI generierte XML für Zwift.
+    Gibt IMMER (bool, str, str) zurück.
+    """
     try:
-        # 1. Reinigung (8 Leerzeichen eingerückt)
-        if "<workout_file>" in xml_string:
-            xml_string = xml_string[xml_string.find("<workout_file>"):]
-        if "</workout_file>" in xml_string:
-            xml_string = xml_string[:xml_string.find("</workout_file>") + 15]
+        # 1. Reinigung
+        if not xml_string or "<workout_file>" not in xml_string:
+            return False, "Kein gültiger XML-Code gefunden.", xml_string
 
-        # 2. Parsen des XML (MUSS auch 8 Leerzeichen eingerückt sein!)
-        root = ET.fromstring(xml_string)
+        start_idx = xml_string.find("<workout_file>")
+        end_idx = xml_string.find("</workout_file>") + 15
+        xml_clean = xml_string[start_idx:end_idx]
+
+        # 2. Parsen
+        root = ET.fromstring(xml_clean)
         workout_node = root.find("workout")
         
-        # ... hier kommt der restliche Code (alle 8 Leerzeichen eingerückt) ...
-
-    except Exception as e:
-        # Hier fängst du den Fehler ab (wieder auf 4 Leerzeichen zurück)
-        return False, f"Fehler: {str(e)}", xml_string
-        
-        # --- SICHERHEITS-CHECK: Leere Tags finden ---
+        # 3. Sicherheits-Checks
         if workout_node is not None:
-            # Wir prüfen, ob ein Repeat-Tag existiert, der keine Kinder (Intervalle) hat
+            # Check auf leere Repeats
             for repeat in workout_node.findall("Repeat"):
                 if len(list(repeat)) == 0:
-                    return False, "⚠️ KRITISCH: Leerer <Repeat>-Tag ohne Intervalle gefunden!", xml_string
+                    # Wenn wir hier einen Fehler finden, geben wir ihn sofort zurück
+                    return False, "⚠️ Fehler: Leerer <Repeat>-Tag (keine Intervalle)!", xml_clean
             
-            # Wir prüfen, ob überhaupt Trainings-Schritte vorhanden sind
+            # Check ob überhaupt Inhalt da ist
             if len(list(workout_node)) == 0:
-                return False, "⚠️ KRITISCH: Der Workout-Bereich ist komplett leer!", xml_string
+                return False, "⚠️ Fehler: Das Workout hat keine Trainingsschritte!", xml_clean
 
-        # 3. Struktur-Wiederherstellung (Skywalker Pro Logik)
+        # 4. Struktur neu aufbauen (Säuberung)
         new_root = ET.Element("workout_file")
-        
-        # Metadaten kopieren
         ET.SubElement(new_root, "author").text = root.findtext("author") or "Skywalker"
         ET.SubElement(new_root, "name").text = root.findtext("name") or "Skywalker Session"
         ET.SubElement(new_root, "description").text = root.findtext("description") or "Training by Skywalker"
         ET.SubElement(new_root, "sportType").text = "bike"
         
-        # Workout-Schritte säubern und neu aufbauen
         new_workout = ET.SubElement(new_root, "workout")
         if workout_node is not None:
             for child in workout_node:
-                # Hier werden nur gültige Tags mit Inhalt übernommen
                 step_node = ET.SubElement(new_workout, child.tag, child.attrib)
                 for subchild in child:
                     ET.SubElement(step_node, subchild.tag, subchild.attrib)
 
-        # 4. Schöne Formatierung für Zwift
+        # 5. Finalisierung
         ET.indent(new_root, space="    ", level=0)
         final_xml = ET.tostring(new_root, encoding="unicode", method="xml")
         
-        return True, "Check bestanden: XML ist valide.", final_xml
+        # WICHTIG: Der Erfolgs-Rückgabewert
+        return True, "XML ist valide und bereit für Zwift.", final_xml
 
     except Exception as e:
-        return False, f"XML-Strukturfehler: {str(e)}", xml_string
+        # WICHTIG: Der Fehler-Rückgabewert (falls beim Parsen was schiefgeht)
+        return False, f"Strukturfehler im XML: {str(e)}", xml_string
 
 # =====================================================
 # 5. PROMPT
@@ -274,23 +283,34 @@ Regeln: Einfaches Deutsch, kein Smalltalk, nur XML bei Workouts.
 """
 
 # =====================================================
-# 6. UI HEADER
+# 6. UI HEADER (NEU OBEN LOGIK)
 # =====================================================
 st.title("🚀 Skywalker Fitness Dashboard")
 
 if df_stats is not None:
     c1, c2, c3, c4 = st.columns(4)
     with c1:
-        s = df_stats.dropna(subset=["Sleep_num"]).sort_values("Date")
-        st.metric("Letzter Schlaf", int(s.iloc[-1]["Sleep_num"]) if not s.empty else 0)
+        # Neu oben: iloc[0] ist der aktuellste Wert
+        s = df_stats.dropna(subset=["Sleep_num"])
+        st.metric("Schlafwert (Aktuell)", int(s.iloc[0]["Sleep_num"]) if not s.empty else 0)
     with c2:
         a = df_act.dropna(subset=["activityTrainingLoad"]) if df_act is not None else pd.DataFrame()
-        st.metric("Letzter Load", round(a.iloc[-1]["activityTrainingLoad"], 1) if not a.empty else 0)
+        st.metric("Letzter Load", round(a.iloc[0]["activityTrainingLoad"], 1) if not a.empty else 0)
     with c3:
-        r = df_stats.dropna(subset=["RHR_num"]).sort_values("Date")
-        st.metric("Ruhepuls", int(r.iloc[-1]["RHR_num"]) if not r.empty else 0)
+        r = df_stats.dropna(subset=["RHR_num"])
+        st.metric("Ruhepuls", int(r.iloc[0]["RHR_num"]) if not r.empty else 0)
     with c4:
-        st.metric("Schritte", int(df_stats.iloc[-1]["Steps_num"]) if df_stats is not None else 0)
+        yesterday_steps = 0
+        label = "Schritte (Gestern)"
+        # Da Neu oben ist: index 0 = Heute, index 1 = Gestern
+        s_stps = df_stats.dropna(subset=["Steps_num"])
+        if len(s_stps) >= 2:
+            yesterday_steps = s_stps.iloc[1]["Steps_num"]
+        elif not s_stps.empty:
+            yesterday_steps = s_stps.iloc[0]["Steps_num"]
+            label = "Schritte (Aktuell)"
+
+        st.metric(label, f"{int(yesterday_steps):,}".replace(",", "."))
 
 # =====================================================
 # 7. TABS
@@ -562,8 +582,8 @@ with tab1:
        - JEDER Block (Warmup, SteadyState, etc.) MUSS mindestens 3 <textevent> enthalten.
        - Diese müssen INNERHALB des Intervall-Tags stehen.
     4. Jedes Workout muss mit <Warmup> beginnen und mit <Cooldown> enden, jeweils 8 MInuten.
-    5. Nach dem WarmUp soll eine Aktivierung erfolgen, in der Form
-       AKTIVIERUNGS-TREPPE (Standard): Jedes Training beginnt nach dem 10-minütigen Warmup (55%) mit einer Rampe:
+    5. Nach dem WarmUp muss eine Aktivierung erfolgen, wenn ein HIT oder Sweet Spot Intervall vorgeschlagen wird, in der Form
+       AKTIVIERUNGS-TREPPE (Standard)
        - 3 Min @ 60% FTP
        - 3 Min @ 70% FTP
        - 3 Min @ 80% FTP
@@ -592,7 +612,7 @@ with tab1:
         <SteadyState Duration="180" Power="0.6" pace="0"/>
         <SteadyState Duration="180" Power="0.7" pace="0"/>
         <SteadyState Duration="180" Power="0.8" pace="0"/>
-        <SteadyState Duration="180" Power="0.9 pace="0"/>
+        <SteadyState Duration="180" Power="0.9" pace="0"/>
         <SteadyState Duration="300" Power="0.55" pace="0"/>
            <SteadyState Duration="1200" Power="0.9">
              <textevent timeoffset="0" message="Start Sweet Spot! Wir bauen deine 250W FTP."/>
@@ -607,8 +627,6 @@ with tab1:
     9. Ein <Repeat>-Tag darf NIEMALS allein stehen. Er muss <IntervalsT> umschließen oder durch <IntervalsT> ersetzt werden.
     10. Für Sprints (Burgomaster/HIT) nutze AUSSCHLIESSLICH: 
        <IntervalsT Repeat="6" OnDuration="30" OffDuration="480" OnPower="1.7" OffPower="0.6" />
-    
-    
     """
 
     curr_rpe = st.session_state.get('rpe_val', 5)
