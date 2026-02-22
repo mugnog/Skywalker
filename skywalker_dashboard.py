@@ -551,23 +551,97 @@ with tab1:
 
     st.divider()
 
-    # --- E. KI-LOGIK (MIT ZWIFT SCHUTZ & AGENTEN) ---
-    heute_jetzt = datetime.now().strftime("%A, %d.%m.%Y")
-    
+# --- E. KI-LOGIK (MIT FEEDBACK-FUNKTION & DATUMS-PRÄZISION) ---
+    # Wir berechnen die Daten präzise, damit die KI nicht rät
+    jetzt = datetime.now()
+    heute_str = jetzt.strftime("%Y-%m-%d")
+    gestern_str = (jetzt - pd.Timedelta(days=1)).strftime("%Y-%m-%d")
+    wochentag = jetzt.strftime("%A")
+
+    # Daten-Kontext vorbereiten
     garmin_perf_ctx = "KEINE DATEN"
     if df_act is not None:
         cols = ["Date", "activityName", "activityTrainingLoad", "normPower", "averageHR"]
         avail = [c for c in cols if c in df_act.columns]
+        # Wir zeigen der KI die letzten 5, damit sie den Verlauf sieht
         garmin_perf_ctx = df_act[avail].head(5).to_string(index=False)
 
-    garmin_stats_ctx = df_stats.iloc[:7].to_string(index=False) if df_stats is not None else "KEINE STATS"
+    garmin_stats_ctx = df_stats.head(7).to_string(index=False) if df_stats is not None else "KEINE STATS"
     
-    checkin_hist = "KEIN CHECK-IN"
-    if os.path.exists(FILE_CHECKIN):
-        checkin_hist = pd.read_csv(FILE_CHECKIN).tail(7).to_string(index=False)
+    # --- NEU: DAS FEEDBACK-FELD (VOR DEN BUTTONS) ---
+    st.markdown("### 💬 Korrektur & Feedback an den Coach")
+    user_feedback = st.text_area(
+        "Kritik oder Änderungswünsche:",
+        placeholder="z.B.: 'Ich habe gestern gar nicht trainiert!' oder 'Plane mir bitte was Kürzeres, ich habe wenig Zeit.'",
+        key="skywalker_feedback_field"
+    )
 
     base_ftp = 230
-    est_ftp = base_ftp 
+    # Wir nutzen den bereits oben berechneten est_ftp Wert
+    
+    # --- F. COACHING AKTIONEN ---
+    final_query = ""
+    col_b1, col_b2, col_b3 = st.columns(3)
+    
+    if col_b1.button("📊 Profi-Analyse"): 
+        final_query = "Führe eine Analyse meiner Form durch und schlage das Training vor."
+    if col_b2.button("📅 5-Tage-Plan"): 
+        final_query = "Erstelle einen Periodisierungsplan für die nächsten 5 Tage."
+    if col_b3.button("🛋️ Erholungstipps"): 
+        final_query = "Gib mir Tipps zur Regeneration basierend auf meinen Werten."
+
+    user_text = st.text_input("Spezielle Frage an Skywalker:")
+    send_button = st.button("Anfrage Senden", type="primary")
+
+    if not final_query and user_text and send_button:
+        final_query = user_text
+
+    # --- G. KI AUSFÜHRUNG MIT KORREKTUR-LOGIK ---
+    if final_query:
+        with st.spinner("Skywalker gleicht die Daten mit deinem Feedback ab..."):
+            try:
+                # Wir bauen das Feedback direkt in den Prompt ein
+                feedback_section = f"\n⚠️ WICHTIGES FEEDBACK VOM ATHLETEN: {user_feedback}" if user_feedback else ""
+                
+                # Der verbesserte Prompt mit klaren Datums-Angaben
+                PROMPT_WITH_FEEDBACK = f"""
+                {skywalker_instruction}
+                
+                AKTUELLER ZEITPUNKT: Heute ist {wochentag}, der {heute_str}.
+                GESTRIGES DATUM: {gestern_str}.
+                
+                DATEN-KONTEXT:
+                - Letzte Aktivitäten:
+                {garmin_perf_ctx}
+                
+                - Gesundheits-Stats (Schlaf/RHR):
+                {garmin_stats_ctx}
+                
+                - Aktuelle Fitness-Werte: CTL={curr_ctl}, ATL={curr_atl}, TSB={curr_tsb}
+                
+                {feedback_section}
+                
+                ANFRAGE DES ATHLETEN: {final_query}
+                
+                {ZWO_SCHEMA}
+                """
+
+                prompt_parts = [PROMPT_WITH_FEEDBACK]
+                if uploaded_tp_image:
+                    img = PIL.Image.open(uploaded_tp_image)
+                    prompt_parts.append(img)
+                
+                response = client.models.generate_content(
+                    model="models/gemini-2.0-flash", 
+                    contents=prompt_parts,
+                    config=types.GenerateContentConfig(temperature=0.1)
+                )
+                
+                st.session_state.last_answer = response.text
+                # Optional: st.rerun() um das Interface zu aktualisieren
+
+            except Exception as e:
+                st.error(f"Fehler bei der Agenten-Analyse: {e}")
     
   
 # ZWIFT XML REGELN (SKYWALKER PRO-EDITION)
