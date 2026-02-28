@@ -7,8 +7,8 @@ import xml.etree.ElementTree as ET
 import PIL.Image
 from datetime import datetime
 from dotenv import load_dotenv
-from google import genai
-from google.genai import types
+import anthropic
+import base64
 import os
 import plotly.graph_objects as go
 from streamlit_autorefresh import st_autorefresh
@@ -55,11 +55,11 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-API_KEY = os.getenv("GOOGLE_API_KEY")
+API_KEY = os.getenv("ANTHROPIC_API_KEY")
 SAVE_PATH = os.getenv("SAVE_PATH")
 
 if not API_KEY:
-    st.error("GOOGLE_API_KEY fehlt in der .env")
+    st.error("ANTHROPIC_API_KEY fehlt in der .env")
     st.stop()
 
 if not SAVE_PATH:
@@ -68,9 +68,9 @@ if not SAVE_PATH:
 
 
 # =====================================================
-# 1. GEMINI SETUP
+# 1. CLAUDE SETUP
 # =====================================================
-client = genai.Client(api_key=os.getenv("GOOGLE_API_KEY"))
+client = anthropic.Anthropic(api_key=API_KEY)
 
 # =====================================================
 # 2. DATEIPFADE & SIDEBAR FUNKTION
@@ -85,19 +85,26 @@ def manual_data_upload():
 
     if uploaded_file is not None:
         try:
-            df_new = pd.read_csv(uploaded_file)
-            
-            # Check: Sind es Schlafdaten oder Aktivitäten?
-            if "Sleep Score" in df_new.columns or "Schlafwert" in df_new.columns:
+            df_new = pd.read_csv(uploaded_file, encoding='utf-8-sig')
+
+            # Robuste Erkennung: Mehrere Indikatoren prüfen
+            STATS_INDICATORS = ["Sleep Score", "Schlafwert", "RHR", "HRV Avg", "HRV Status",
+                                "Steps", "Schritte", "Sleep Total"]
+            ACT_INDICATORS = ["activityName", "activityTrainingLoad", "normPower", "Aktivitätsname"]
+
+            stats_hits = sum(1 for col in STATS_INDICATORS if col in df_new.columns)
+            act_hits = sum(1 for col in ACT_INDICATORS if col in df_new.columns)
+
+            if stats_hits >= act_hits:
                 target_file = FILE_STATS
-                st.sidebar.success("Schlafdaten erkannt!")
+                st.sidebar.success(f"Gesundheitsdaten erkannt! ({stats_hits} Merkmale)")
             else:
                 target_file = FILE_ACT
-                st.sidebar.success("Aktivität erkannt!")
+                st.sidebar.success(f"Aktivitäten erkannt! ({act_hits} Merkmale)")
 
             # Daten zusammenführen
             if os.path.exists(target_file):
-                df_old = pd.read_csv(target_file)
+                df_old = pd.read_csv(target_file, encoding='utf-8-sig')
                 df_final = pd.concat([df_new, df_old]).drop_duplicates(subset=["Date"], keep="first")
                 df_final.to_csv(target_file, index=False)
                 st.sidebar.info("Daten wurden aktualisiert!")
@@ -132,22 +139,25 @@ uploaded_tp_image = manual_data_upload()
 # =====================================================
 # 3. DATEN LADEN (BACK TO BASICS - OHNE REINIGUNGS-FEHLER)
 # =====================================================
-@st.cache_data(ttl=60)
-def load_all_data():
-    df_s = pd.read_csv(FILE_STATS) if os.path.exists(FILE_STATS) else None
-    df_a = pd.read_csv(FILE_ACT) if os.path.exists(FILE_ACT) else None
-    df_c = pd.read_csv(FILE_CHECKIN) if os.path.exists(FILE_CHECKIN) else None
+def get_file_mtime(path):
+    return os.path.getmtime(path) if os.path.exists(path) else 0
+
+@st.cache_data
+def load_all_data(_mtime_stats, _mtime_act, _mtime_checkin):
+    df_s = pd.read_csv(FILE_STATS, encoding='utf-8-sig', on_bad_lines='warn') if os.path.exists(FILE_STATS) else None
+    df_a = pd.read_csv(FILE_ACT, encoding='utf-8-sig', on_bad_lines='warn') if os.path.exists(FILE_ACT) else None
+    df_c = pd.read_csv(FILE_CHECKIN, encoding='utf-8-sig', on_bad_lines='warn') if os.path.exists(FILE_CHECKIN) else None
 
     if df_s is not None:
-        df_s["Date"] = pd.to_datetime(df_s["Date"]).dt.normalize()
+        df_s["Date"] = pd.to_datetime(df_s["Date"], dayfirst=False).dt.normalize()
         
         step_col = "Steps" if "Steps" in df_s.columns else "Schritte"
         if step_col in df_s.columns:
             # Da deine Datei laut Screenshot reine Zahlen hat: Direkt umwandeln!
             df_s["Steps_num"] = pd.to_numeric(df_s[step_col], errors="coerce").fillna(0).astype(int)
         
-        # Falls ein Tag doppelt vorkommt: Wir nehmen nur den höchsten Wert
-        df_s = df_s.groupby("Date").max(numeric_only=True).reset_index()
+        # Falls ein Tag doppelt vorkommt: Wir nehmen den ersten Eintrag (alle Spalten bleiben erhalten)
+        df_s = df_s.sort_values("Date").drop_duplicates(subset=["Date"], keep="last").reset_index(drop=True)
         
         # DEIN WUNSCH: Neu oben für die Tabellen-Ansicht
         df_s = df_s.sort_values("Date", ascending=False)
@@ -156,7 +166,7 @@ def load_all_data():
         df_s["RHR_num"] = pd.to_numeric(df_s["RHR"], errors="coerce")
 
     if df_a is not None:
-        df_a["Date"] = pd.to_datetime(df_a["Date"]).dt.normalize()
+        df_a["Date"] = pd.to_datetime(df_a["Date"], dayfirst=False).dt.normalize()
         # Neu oben
         df_a = df_a.sort_values("Date", ascending=False)
         if "distance" in df_a.columns:
@@ -165,13 +175,19 @@ def load_all_data():
     return df_s, df_a, df_c
 
 # Variablen-Zuweisung
-df_stats, df_act, df_checkin = load_all_data()
+df_stats, df_act, df_checkin = load_all_data(
+    get_file_mtime(FILE_STATS),
+    get_file_mtime(FILE_ACT),
+    get_file_mtime(FILE_CHECKIN)
+)
 
 # =====================================================
 # ZENTRALE PERFORMANCE-BERECHNUNG (FIX: df_data definiert)
 # =====================================================
 curr_ctl, curr_atl, curr_tsb, weekly_load = 0, 0, 0, 0
-est_ftp = 230 
+est_ftp = 230
+df_data = pd.DataFrame()
+one_week_ago = pd.Timestamp.now() - pd.Timedelta(days=7)
 
 if df_act is not None and not df_act.empty:
     # 1. Wir erstellen die chronologische Arbeitskopie
@@ -303,8 +319,8 @@ if df_stats is not None:
     with c4:
         yesterday_steps = 0
         label = "Schritte (Gestern)"
-        # Da Neu oben ist: index 0 = Heute, index 1 = Gestern
-        s_stps = df_stats.dropna(subset=["Steps_num"])
+        # Nur Tage mit echten Schrittzahlen (> 0) nehmen
+        s_stps = df_stats[df_stats["Steps_num"] > 0]
         if len(s_stps) >= 2:
             yesterday_steps = s_stps.iloc[1]["Steps_num"]
         elif not s_stps.empty:
@@ -323,13 +339,43 @@ tab1, tab2, tab3, tab4, tab5 = st.tabs(["🤖 Coach", "🚴 Aktivitäten", "😴
 # =====================================================
 
 with tab1:
-    # --- A. CSS & DESIGN ---
+    # --- A. CSS & DESIGN (Slider-Styling für Check-in) ---
     st.markdown("""
         <style>
-        div[data-baseweb="slider"] > div:first-child > div:first-child {
-            height: 12px !important; 
+        /* ===== SLIDER TRACK (Hintergrund-Schiene) ===== */
+        [data-baseweb="slider"] [role="slider"] {
+            width: 24px !important;
+            height: 24px !important;
+            background: white !important;
+            border: 3px solid #444 !important;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.5) !important;
+            top: -8px !important;
+        }
+        /* Track-Gesamthöhe */
+        [data-baseweb="slider"] > div > div {
+            height: 10px !important;
             border-radius: 6px !important;
-            background: linear-gradient(to right, #00C853, #FFD600, #D50000) !important;
+        }
+        /* Inaktiver Teil (rechts vom Thumb) */
+        [data-baseweb="slider"] > div > div:first-child {
+            background: linear-gradient(90deg, #FF1744, #FF9100, #FFD600, #00E676) !important;
+            height: 10px !important;
+            border-radius: 6px !important;
+            opacity: 0.25 !important;
+        }
+        /* Aktiver Teil (links vom Thumb) */
+        [data-baseweb="slider"] > div > div:nth-child(2) {
+            height: 10px !important;
+            border-radius: 6px !important;
+            background: linear-gradient(90deg, #FF1744, #FF9100, #FFD600, #00E676) !important;
+        }
+        /* Min/Max Labels ausblenden */
+        [data-testid="stTickBarMin"], [data-testid="stTickBarMax"] {
+            display: none !important;
+        }
+        /* Aktuellen Wert über dem Thumb ausblenden (redundant wegen Badge) */
+        [data-testid="stThumbValue"] {
+            display: none !important;
         }
         </style>
     """, unsafe_allow_html=True)
@@ -390,24 +436,122 @@ with tab1:
     st.markdown("### ☀️ Morning Check-in (Heute)")
     c_date = st.date_input("Datum", datetime.now(), key="checkin_date_picker")
     c_date_pure = c_date.strftime("%Y-%m-%d")
-    
-    col_left, col_right = st.columns(2)
-    with col_left:
-        s1 = st.slider("Schlafqualität", 1, 10, 7)
-        s2_val = st.slider("Stress-Level", 1, 10, 8)
-        s2 = 11 - s2_val 
-        s3 = st.slider("Physische Energie", 1, 10, 8)
-        s_load_est = st.slider("Gefühlte Last gestern", 1, 10, 5)
 
-    with col_right:
-        s4 = st.slider("Muskelzustand", 1, 10, 8)
-        s5 = st.slider("Ernährung", 1, 10, 7) 
-        s6 = st.slider("Mentale Frische", 1, 10, 7)
-        s_health = st.slider("Gesundheit", 1, 10, 10)
+    col_checkin, col_radar = st.columns([1.2, 1])
 
-    if st.button("💾 Morning Stats speichern"):
-        # ... (Dein Speicher-Code bleibt gleich, achte nur auf die Einrückung)
-        pass
+    with col_checkin:
+        def val_color(v, invert=False):
+            v_eff = 11 - v if invert else v
+            if v_eff >= 8: return "#00E676"
+            if v_eff >= 6: return "#FFD600"
+            if v_eff >= 4: return "#FF9100"
+            return "#FF1744"
+
+        checkin_items = [
+            {"key": "s1",      "label": "😴 Schlaf",    "default": 7, "invert": False},
+            {"key": "s2_val",  "label": "🧠 Stress",    "default": 8, "invert": True},
+            {"key": "s3",      "label": "⚡ Energie",    "default": 8, "invert": False},
+            {"key": "s_load",  "label": "🏋️ Last",      "default": 5, "invert": True},
+            {"key": "s4",      "label": "💪 Muskeln",   "default": 8, "invert": False},
+            {"key": "s5",      "label": "🥗 Ernährung", "default": 7, "invert": False},
+            {"key": "s6",      "label": "🎯 Mental",    "default": 7, "invert": False},
+            {"key": "s_health","label": "❤️ Gesundheit", "default": 10, "invert": False},
+        ]
+        checkin_vals = {}
+        for item in checkin_items:
+            col_sl, col_badge = st.columns([6, 1])
+            with col_sl:
+                v = st.slider(item["label"], 1, 10, item["default"], key=f"ci_{item['key']}")
+                checkin_vals[item["key"]] = v
+            with col_badge:
+                c = val_color(v, item["invert"])
+                st.markdown(f"""
+                <div style="margin-top:28px; text-align:center;">
+                    <span style="display:inline-block; width:40px; height:40px; line-height:40px;
+                        border-radius:50%; background:{c}18; border:2px solid {c};
+                        color:{c}; font-weight:800; font-size:17px;">{v}</span>
+                </div>""", unsafe_allow_html=True)
+
+    s1 = checkin_vals["s1"]
+    s2_val = checkin_vals["s2_val"]
+    s2 = 11 - s2_val
+    s3 = checkin_vals["s3"]
+    s_load_est = checkin_vals["s_load"]
+    s4 = checkin_vals["s4"]
+    s5 = checkin_vals["s5"]
+    s6 = checkin_vals["s6"]
+    s_health = checkin_vals["s_health"]
+
+    with col_radar:
+        # Readiness Score
+        all_vals = [s1, 11 - s2_val, s3, 11 - s_load_est, s4, s5, s6, s_health]
+        readiness = round(sum(all_vals) / len(all_vals), 1)
+
+        if readiness >= 8:
+            r_color, r_status = "#00E676", "RACE READY"
+        elif readiness >= 6:
+            r_color, r_status = "#FFD600", "SOLID"
+        elif readiness >= 4:
+            r_color, r_status = "#FF9100", "MÜDE"
+        else:
+            r_color, r_status = "#FF1744", "RUHETAG"
+
+        st.markdown(f"""
+        <div style="text-align:center; padding: 10px 0;">
+            <span style="font-size:48px; font-weight:900; color:{r_color};">{readiness}</span>
+            <span style="font-size:16px; color:{r_color};">/10</span>
+            <br><span style="font-size:14px; color:{r_color}; letter-spacing:3px;">{r_status}</span>
+        </div>
+        """, unsafe_allow_html=True)
+
+        # Radar Chart
+        radar_labels = ["Schlaf", "Stress", "Energie", "Erholung", "Muskeln", "Ernährung", "Mental", "Gesundheit"]
+        radar_vals = all_vals + [all_vals[0]]  # Kreis schließen
+        radar_labels_closed = radar_labels + [radar_labels[0]]
+
+        fig_radar = go.Figure()
+        fig_radar.add_trace(go.Scatterpolar(
+            r=radar_vals, theta=radar_labels_closed,
+            fill='toself',
+            fillcolor=f'rgba({int(r_color[1:3],16)},{int(r_color[3:5],16)},{int(r_color[5:7],16)},0.15)',
+            line=dict(color=r_color, width=2.5),
+            marker=dict(size=6, color=r_color),
+            name='Heute'
+        ))
+        fig_radar.update_layout(
+            polar=dict(
+                radialaxis=dict(visible=True, range=[0, 10], showticklabels=False,
+                    gridcolor='rgba(255,255,255,0.08)'),
+                angularaxis=dict(gridcolor='rgba(255,255,255,0.08)',
+                    tickfont=dict(size=11, color='#aaa')),
+                bgcolor='rgba(0,0,0,0)'
+            ),
+            showlegend=False, height=320,
+            margin=dict(l=40, r=40, t=20, b=20),
+            paper_bgcolor='rgba(0,0,0,0)'
+        )
+        st.plotly_chart(fig_radar, width='stretch')
+
+    if st.button("💾 Morning Stats speichern", type="primary"):
+        checkin_row = {
+            "Date": c_date_pure, "Schlaf": s1, "Stress": s2, "Energie": s3,
+            "Load_Gestern": s_load_est, "Muskeln": s4, "Ernahrung": s5,
+            "Mental": s6, "Gesundheit": s_health, "RPE": 0, "Feel": 0
+        }
+        if os.path.exists(FILE_CHECKIN):
+            df_ci = pd.read_csv(FILE_CHECKIN, encoding='utf-8-sig')
+            mask = df_ci["Date"] == c_date_pure
+            if mask.any():
+                for k, v in checkin_row.items():
+                    if k != "Date":
+                        df_ci.loc[mask, k] = v
+            else:
+                df_ci = pd.concat([df_ci, pd.DataFrame([checkin_row])], ignore_index=True)
+        else:
+            df_ci = pd.DataFrame([checkin_row])
+        df_ci.to_csv(FILE_CHECKIN, index=False)
+        st.success("Check-in gespeichert!")
+        st.rerun()
 
     st.divider()
 
@@ -433,67 +577,108 @@ with tab1:
         col_g1, col_g2 = st.columns([1, 1.5])
         
         with col_g2:
-            x_vals = []
-            y_vals = []
-            colors = []
-            
-            steps = [i * 0.5 for i in range(2, 21)] 
-            
-            for x in steps:
-                for y in steps:
-                    x_vals.append(x)
-                    y_vals.append(y)
-                    # ALGO: (Intensität + Invertiertes Wohlbefinden) / 20 -> 0 bis 1
-                    score = (x + y) / 20.0
-                    colors.append(score)
+            import numpy as np
+
+            # Heatmap-Daten: Smooth Gradient über 100x100 Grid
+            grid_size = 50
+            x_grid = np.linspace(1, 10, grid_size)
+            y_grid = np.linspace(1, 10, grid_size)
+            z_grid = np.array([[(x + y) / 20.0 for x in x_grid] for y in y_grid])
 
             fig_matrix = go.Figure()
 
-            # 1. Heatmap
-            fig_matrix.add_trace(go.Scatter(
-                x=x_vals, y=y_vals,
-                mode='markers',
-                marker=dict(
-                    symbol='square', size=18, color=colors,
-                    colorscale='RdYlGn_r', # Grün (Low) -> Rot (High)
-                    cmin=0.1, cmax=0.9,
-                    showscale=False, opacity=0.4
-                ),
-                hoverinfo='none', name='Heatmap'
+            # 1. Smooth Heatmap als Hintergrund
+            fig_matrix.add_trace(go.Heatmap(
+                x=x_grid, y=y_grid, z=z_grid,
+                colorscale=[
+                    [0.0, '#0d4f1c'], [0.25, '#1a8a3a'],
+                    [0.45, '#c8b800'], [0.65, '#e87a1e'],
+                    [0.85, '#c92a2a'], [1.0, '#7a0000']
+                ],
+                showscale=False, opacity=0.5,
+                hoverinfo='none'
             ))
 
-            # 2. Dein Punkt
+            # 2. Unsichtbares Klick-Gitter (für Punkt-Auswahl)
+            grid_clicks_x = []
+            grid_clicks_y = []
+            for gx in [i * 0.5 for i in range(2, 21)]:
+                for gy in [i * 0.5 for i in range(2, 21)]:
+                    grid_clicks_x.append(gx)
+                    grid_clicks_y.append(gy)
             fig_matrix.add_trace(go.Scatter(
-                x=[st.session_state.rpe_val], 
-                y=[st.session_state.feel_val], 
+                x=grid_clicks_x, y=grid_clicks_y,
+                mode='markers',
+                marker=dict(size=18, color='rgba(0,0,0,0)', symbol='square'),
+                hoverinfo='text',
+                text=[f"Intensität: {x}, Leiden: {y}" for x, y in zip(grid_clicks_x, grid_clicks_y)],
+                name='Grid'
+            ))
+
+            # 4. Zonen-Trennlinien
+            for val in [3.5, 5.5, 7.5]:
+                fig_matrix.add_shape(type="line", x0=val, x1=val, y0=0.5, y1=10.5,
+                    line=dict(color="rgba(255,255,255,0.15)", width=1, dash="dot"))
+                fig_matrix.add_shape(type="line", x0=0.5, x1=10.5, y0=val, y1=val,
+                    line=dict(color="rgba(255,255,255,0.15)", width=1, dash="dot"))
+
+            # 5. Zonen-Labels
+            zones = [
+                dict(x=2, y=2, text="FRESH", color="#00E676"),
+                dict(x=8.5, y=2, text="PUSH", color="#FFD600"),
+                dict(x=2, y=8.5, text="TIRED", color="#FF9100"),
+                dict(x=8.5, y=8.5, text="DANGER", color="#FF1744"),
+            ]
+            for z in zones:
+                fig_matrix.add_annotation(
+                    x=z["x"], y=z["y"], text=z["text"], showarrow=False,
+                    font=dict(size=14, color=z["color"], family="Arial Black"),
+                    opacity=0.4
+                )
+
+            # 6. Glow-Ring um den Spieler-Punkt
+            px_val = st.session_state.rpe_val
+            py_val = st.session_state.feel_val
+            curr_score = (px_val + py_val) / 2
+            glow_color = "#00E676" if curr_score < 4 else ("#FFD600" if curr_score < 6 else ("#FF9100" if curr_score < 8 else "#FF1744"))
+
+            fig_matrix.add_trace(go.Scatter(
+                x=[px_val], y=[py_val], mode='markers',
+                marker=dict(size=55, color='rgba(0,0,0,0)',
+                    line=dict(width=3, color=glow_color)),
+                hoverinfo='none', name='Glow'
+            ))
+
+            # 7. Spieler-Punkt
+            fig_matrix.add_trace(go.Scatter(
+                x=[px_val], y=[py_val],
                 mode='markers+text',
-                marker=dict(size=40, color='#262626', line=dict(width=3, color='white')),
-                text=["DU"], textposition="middle center", textfont=dict(color='white', size=12, weight='bold'),
-                hoverinfo='none', name='Selection'
+                marker=dict(size=38, color='#111111',
+                    line=dict(width=2.5, color='white')),
+                text=["DU"], textposition="middle center",
+                textfont=dict(color='white', size=13, family="Arial Black"),
+                hoverinfo='none', name='Player'
             ))
 
             fig_matrix.update_layout(
-                xaxis=dict(range=[0.5, 10.5], title="Intensität (Watt)", showgrid=False, zeroline=False, fixedrange=True),
-                yaxis=dict(range=[0.5, 10.5], title="Wohlbefinden (1=Gut ... 10=Schlecht)", showgrid=False, zeroline=False, fixedrange=True),
-                width=400, height=400,
-                margin=dict(l=20, r=20, t=20, b=20),
+                xaxis=dict(range=[0.5, 10.5], title="Intensität", showgrid=False,
+                    zeroline=False, fixedrange=True, color='#888',
+                    tickvals=[1, 2, 3, 4, 5, 6, 7, 8, 9, 10]),
+                yaxis=dict(range=[0.5, 10.5], title="Leiden", showgrid=False,
+                    zeroline=False, fixedrange=True, color='#888',
+                    tickvals=[1, 2, 3, 4, 5, 6, 7, 8, 9, 10]),
+                width=420, height=420,
+                margin=dict(l=40, r=15, t=15, b=40),
                 paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
-                showlegend=False, dragmode=False 
+                showlegend=False, dragmode=False
             )
 
-            # --- HIER IST DER UNTERSCHIED ---
-            # Wir nutzen st.plotly_chart mit on_select="rerun"
-            # Das ist NATIVE STREAMLIT (kein Plugin nötig)
             event = st.plotly_chart(fig_matrix, on_select="rerun", selection_mode="points", key="matrix_select")
 
             if event and event["selection"]["points"]:
                 clicked_point = event["selection"]["points"][0]
-                new_x = clicked_point["x"]
-                new_y = clicked_point["y"]
-                # Runden auf 0.5
-                new_x = round(new_x * 2) / 2
-                new_y = round(new_y * 2) / 2
-                
+                new_x = round(clicked_point["x"] * 2) / 2
+                new_y = round(clicked_point["y"] * 2) / 2
                 if new_x != st.session_state.rpe_val or new_y != st.session_state.feel_val:
                     st.session_state.rpe_val = new_x
                     st.session_state.feel_val = new_y
@@ -524,7 +709,7 @@ with tab1:
 
             if st.button(f"💾 Matrix für {act_date} speichern", type="primary"):
                 if os.path.exists(FILE_CHECKIN):
-                    df_old = pd.read_csv(FILE_CHECKIN)
+                    df_old = pd.read_csv(FILE_CHECKIN, encoding='utf-8-sig')
                     for col in ["RPE", "Feel"]: 
                         if col not in df_old.columns: df_old[col] = 0
                     
@@ -565,10 +750,9 @@ with tab1:
     
     checkin_hist = "KEIN CHECK-IN"
     if os.path.exists(FILE_CHECKIN):
-        checkin_hist = pd.read_csv(FILE_CHECKIN).tail(7).to_string(index=False)
+        checkin_hist = pd.read_csv(FILE_CHECKIN, encoding='utf-8-sig').tail(7).to_string(index=False)
 
     base_ftp = 230
-    est_ftp = base_ftp 
     
   
 # ZWIFT XML REGELN (SKYWALKER PRO-EDITION)
@@ -715,26 +899,34 @@ with tab1:
         with st.spinner("Das Skywalker Agenten-Netzwerk analysiert alle Datenpunkte..."):
             try:
                 # 1. Prompt bauen
-                prompt_parts = [f"{DYNAMIC_PROMPT}\n\nANFRAGE: {final_query}"]
-                
+                user_content = []
+
                 # 2. Bild hinzufügen (falls hochgeladen)
                 if uploaded_tp_image:
-                    img = PIL.Image.open(uploaded_tp_image)
-                    prompt_parts.append(img)
-                
-                # 3. KI Aufruf (Mit Temperature 0.1 für Stabilität)
-                response = client.models.generate_content(
-                    model="models/gemini-2.0-flash", 
-                    contents=prompt_parts,
-                    config=types.GenerateContentConfig(
-                        temperature=0,  # Stabil & Konsistent
-                        top_p=0.95,
-                        top_k=40
-                    )
+                    img_bytes = uploaded_tp_image.getvalue()
+                    img_b64 = base64.standard_b64encode(img_bytes).decode("utf-8")
+                    media_type = "image/png"
+                    if uploaded_tp_image.name:
+                        ext = uploaded_tp_image.name.rsplit(".", 1)[-1].lower()
+                        if ext in ("jpg", "jpeg"):
+                            media_type = "image/jpeg"
+                    user_content.append({
+                        "type": "image",
+                        "source": {"type": "base64", "media_type": media_type, "data": img_b64}
+                    })
+
+                user_content.append({"type": "text", "text": f"{DYNAMIC_PROMPT}\n\nANFRAGE: {final_query}"})
+
+                # 3. KI Aufruf (Claude Opus)
+                response = client.messages.create(
+                    model="claude-sonnet-4-20250514",
+                    max_tokens=4096,
+                    temperature=0,
+                    messages=[{"role": "user", "content": user_content}]
                 )
-                
+
                 # 4. Ergebnis speichern
-                st.session_state.last_answer = response.text
+                st.session_state.last_answer = response.content[0].text
 
             except Exception as e:
                 st.error(f"Agenten-Fehler: {e}")
@@ -884,8 +1076,8 @@ with tab3:
 # =====================================================
 with tab4:
     if df_stats is not None:
-        # Für die Grafik zeitlich korrekt sortieren (links alt, rechts neu)
-        df_chart = df_stats.sort_values("Date", ascending=True).tail(30)
+        # Nur Tage mit echten Schrittzahlen, zeitlich sortiert
+        df_chart = df_stats[df_stats["Steps_num"] > 0].sort_values("Date", ascending=True).tail(30)
         
         fig_steps = px.bar(
             df_chart, 

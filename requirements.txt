@@ -15,8 +15,5 @@ streamlit-plotly-events
 garminconnect>=0.2.0
 garth>=0.5.0
 
-# --- Google AI (Gemini) ---
-google-genai>=1.0.0
-google-api-python-client>=2.100.0
-google-auth-httplib2>=0.2.0
-google-auth-oauthlib>=1.2.0
+# --- Anthropic Claude AI ---
+anthropic>=0.84.0

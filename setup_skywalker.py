@@ -5,7 +5,7 @@ def setup():
     print("--- Skywalker AI: Initial Setup ---")
     
     # 1. API Keys abfragen
-    gemini_key = input("Gib deinen Google Gemini API Key ein: ").strip()
+    anthropic_key = input("Gib deinen Anthropic API Key ein: ").strip()
     garmin_user = input("Gib deine Garmin Connect Email ein: ").strip()
     garmin_pass = input("Gib dein Garmin Passwort ein (wird lokal gespeichert): ").strip()
     
@@ -16,7 +16,7 @@ def setup():
 
     # 3. .env Datei schreiben
     env_content = f"""# Skywalker AI Configuration
-GEMINI_API_KEY={gemini_key}
+ANTHROPIC_API_KEY={anthropic_key}
 GARMIN_EMAIL={garmin_user}
 GARMIN_PASSWORD={garmin_pass}
 SAVE_PATH={data_path}
