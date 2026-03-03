@@ -5,7 +5,7 @@ numpy>=1.24.0
 requests>=2.31.0
 pillow>=10.0.0
 
-# --- Dashboard & Visualization ---
+# --- Dashboard & Visualization (Streamlit – nur lokal) ---
 streamlit>=1.32.0
 plotly>=5.18.0
 streamlit-autorefresh
@@ -17,3 +17,12 @@ garth>=0.5.0
 
 # --- Anthropic Claude AI ---
 anthropic>=0.84.0
+
+# --- FastAPI Backend ---
+fastapi>=0.115.0
+uvicorn[standard]>=0.30.0
+python-multipart>=0.0.9
+sqlalchemy>=2.0.0
+python-jose[cryptography]>=3.3.0
+bcrypt>=4.0.0
+cryptography>=41.0.0
