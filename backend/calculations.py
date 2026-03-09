@@ -38,6 +38,9 @@ def _daily_tss(df_act: pd.DataFrame, days: int) -> pd.DataFrame:
     start = end - pd.Timedelta(days=days)
     date_range = pd.date_range(start, end, freq="D")
 
+    if df_act.empty or "activityTrainingLoad" not in df_act.columns:
+        return pd.DataFrame({"Date": date_range, "TSS": [0] * len(date_range)})
+
     df = df_act.copy()
     df["Date"] = pd.to_datetime(df["Date"]).dt.normalize()
     daily = (
@@ -154,29 +157,26 @@ def compute_combined_status(
 
 def compute_readiness(checkin_row: dict) -> tuple[float, str]:
     """
-    Average 8 check-in metrics into a single readiness score.
+    Average 6 check-in metrics into a single readiness score.
     Returns (score 0-10, label string).
     """
-    stress_inv = 11 - checkin_row.get("stress", 5)
-    load_inv = 11 - checkin_row.get("load_gestern", 5)
-
     values = [
         checkin_row.get("schlaf", 5),
-        stress_inv,
         checkin_row.get("energie", 5),
-        load_inv,
+        checkin_row.get("gesundheit", 5),
         checkin_row.get("muskeln", 5),
         checkin_row.get("ernahrung", 5),
         checkin_row.get("mental", 5),
-        checkin_row.get("gesundheit", 5),
     ]
     score = round(sum(values) / len(values), 1)
 
-    if score >= 9:
+    if score >= 8.5:
         label = "RACE READY 🔥"
-    elif score >= 8:
+    elif score >= 7:
         label = "SOLID 💪"
-    elif score >= 6:
+    elif score >= 5.5:
+        label = "OK 🙂"
+    elif score >= 4:
         label = "TIRED 😴"
     else:
         label = "REST DAY 🛋️"

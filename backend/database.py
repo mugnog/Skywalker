@@ -3,7 +3,7 @@ SQLite database setup – stores user accounts only.
 Training data stays in per-user CSV directories.
 """
 import os
-from sqlalchemy import create_engine, Column, Integer, String, DateTime, Boolean
+from sqlalchemy import create_engine, Column, Integer, Float, String, DateTime, Boolean
 from sqlalchemy.orm import declarative_base, sessionmaker
 from datetime import datetime
 from dotenv import load_dotenv
@@ -28,6 +28,15 @@ class User(Base):
     garmin_email = Column(String, default="")
     garmin_password_enc = Column(String, default="")   # Fernet encrypted
     ftp_override = Column(Integer, default=0)           # 0 = auto-berechnen
+    ftp_target = Column(Integer, default=0)             # 0 = noch nicht gesetzt
+    training_goal = Column(String, default="")          # ftp / endurance / weight / race / health
+    event_name = Column(String, default="")             # z.B. "Alpenbrevet"
+    event_date = Column(String, default="")             # ISO: YYYY-MM-DD
+    training_frequency = Column(String, default="")     # low / mid / high
+    training_days = Column(String, default="")           # e.g. "mon,wed,fri,sat,sun"
+    weight_kg = Column(Float, default=0.0)
+    height_cm = Column(Integer, default=0)
+    gender = Column(String, default="")                 # male / female / other
     created_at = Column(DateTime, default=datetime.utcnow)
     is_active = Column(Boolean, default=True)
 

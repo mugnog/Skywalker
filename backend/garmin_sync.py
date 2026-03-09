@@ -3,12 +3,16 @@ Garmin sync per User – adapted from daily_garmin_activities.py / daily_garmin_
 """
 import os
 import csv
+import threading
 import tempfile
 from datetime import date, timedelta
 from dotenv import load_dotenv
 
 load_dotenv()
 _SAVE_PATH = os.getenv("SAVE_PATH", os.path.expanduser("~/Documents/AI_Fitness-main"))
+
+# In-memory MFA sessions: user_id -> session dict
+_login_sessions: dict = {}
 
 
 def _user_token_dir(user_id: int) -> str:
@@ -25,32 +29,118 @@ def _user_csv(user_id: int, filename: str) -> str:
 
 def connect_garmin(user_id: int, email: str, password: str) -> dict:
     """
-    Login to Garmin Connect and store tokens for the user.
-    Returns {"ok": True} or raises an exception.
+    Start Garmin login. Returns {"ok": True} on direct success,
+    or {"needs_mfa": True} when Garmin requires a security code.
     """
-    import garth
     from garminconnect import Garmin
 
     token_dir = _user_token_dir(user_id)
+    _login_sessions.pop(user_id, None)
 
-    client = Garmin(email, password)
-    client.login()
-    client.garth.dump(token_dir)
+    session = {
+        "email": email,
+        "password": password,
+        "mfa_needed": threading.Event(),
+        "mfa_provided": threading.Event(),
+        "code": None,
+        "result": None,
+        "done": threading.Event(),
+    }
+    _login_sessions[user_id] = session
 
-    return {"ok": True, "display_name": getattr(client, "display_name", email)}
+    def prompt_mfa():
+        session["mfa_needed"].set()
+        session["mfa_provided"].wait(timeout=300)
+        return session["code"] or ""
+
+    def do_login():
+        try:
+            client = Garmin(email, password, prompt_mfa=prompt_mfa)
+            client.login()
+            client.garth.dump(token_dir)
+            session["result"] = {"ok": True, "display_name": getattr(client, "display_name", email)}
+        except Exception as e:
+            session["result"] = {"ok": False, "error": str(e)}
+        finally:
+            session["done"].set()
+            session["mfa_needed"].set()
+
+    thread = threading.Thread(target=do_login, daemon=True)
+    thread.start()
+
+    # Wait up to 30s for MFA trigger or immediate success/failure
+    session["mfa_needed"].wait(timeout=30)
+
+    if not session["done"].is_set():
+        # Login is waiting for the MFA code
+        return {"needs_mfa": True}
+
+    # Login completed without MFA
+    thread.join(timeout=5)
+    result = session.get("result", {})
+    _login_sessions.pop(user_id, None)
+
+    if result.get("ok"):
+        return {"ok": True, "display_name": result.get("display_name", email)}
+    raise Exception(result.get("error", "Login fehlgeschlagen"))
 
 
-def sync_activities(user_id: int, days: int = 30) -> int:
-    """Sync last N days of activities for a user. Returns number of activities synced."""
+def connect_garmin_mfa(user_id: int, code: str) -> dict:
+    """Provide MFA code and complete Garmin login."""
+    session = _login_sessions.get(user_id)
+    if not session:
+        raise Exception("Kein MFA-Login ausstehend. Bitte neu verbinden.")
+
+    email = session["email"]
+    password = session["password"]
+
+    session["code"] = code
+    session["mfa_provided"].set()
+
+    # Wait for login to complete
+    session["done"].wait(timeout=15)
+
+    result = session.get("result", {})
+    _login_sessions.pop(user_id, None)
+
+    if result.get("ok"):
+        return {
+            "ok": True,
+            "display_name": result.get("display_name", email),
+            "email": email,
+            "password": password,
+        }
+    raise Exception(result.get("error", "Login fehlgeschlagen"))
+
+
+def _resume_garmin(token_dir: str):
+    """Resume Garmin session from saved tokens and restore display_name."""
     import garth
     from garminconnect import Garmin
-
-    token_dir = _user_token_dir(user_id)
-    csv_file = _user_csv(user_id, "garmin_activities.csv")
 
     garth.resume(token_dir)
     api = Garmin("dummy", "dummy")
     api.garth = garth.client
+
+    # Restore display_name needed for get_user_summary
+    try:
+        api.display_name = (
+            api.garth.profile.get("displayName")
+            or api.garth.profile.get("username")
+            or api.garth.profile.get("sub")
+        )
+    except Exception:
+        pass
+
+    return api
+
+
+def sync_activities(user_id: int, days: int = 30) -> int:
+    """Sync last N days of activities for a user. Returns number of activities synced."""
+    token_dir = _user_token_dir(user_id)
+    csv_file = _user_csv(user_id, "garmin_activities.csv")
+
+    api = _resume_garmin(token_dir)
 
     start = (date.today() - timedelta(days=days)).isoformat()
     end = date.today().isoformat()
@@ -102,6 +192,11 @@ def sync_activities(user_id: int, days: int = 30) -> int:
             act.get("vO2MaxValue"), act.get("lactateThresholdHeartRate"), act.get("activityId"),
         ])
 
+    from .data_manager import load_blacklist
+    blacklist = load_blacklist(user_id)
+    if blacklist:
+        rows = [r for r in rows if (r[0], r[2]) not in blacklist]  # r[0]=date, r[2]=activityName
+
     rows.sort(key=lambda x: (x[0], x[1]), reverse=True)
     with open(csv_file, "w", newline="", encoding="utf-8") as f:
         writer = csv.writer(f)
@@ -113,15 +208,10 @@ def sync_activities(user_id: int, days: int = 30) -> int:
 
 def sync_health(user_id: int, days: int = 7) -> int:
     """Sync last N days of health/stats data for a user. Returns number of days synced."""
-    import garth
-    from garminconnect import Garmin
-
     token_dir = _user_token_dir(user_id)
     csv_file = _user_csv(user_id, "garmin_stats.csv")
 
-    garth.resume(token_dir)
-    api = Garmin("dummy", "dummy")
-    api.garth = garth.client
+    api = _resume_garmin(token_dir)
 
     def get_safe(data, *keys):
         try:
@@ -185,6 +275,30 @@ def sync_health(user_id: int, days: int = 7) -> int:
                 cals_goal = get_safe(s, "dailyStepGoal")
             except Exception:
                 pass
+
+            # VO2 Max Fallback 1: get_max_metrics (most reliable source)
+            if vo2 is None:
+                try:
+                    if hasattr(api, "get_max_metrics"):
+                        max_metrics = api.get_max_metrics(day_str)
+                        if max_metrics:
+                            for metric in (max_metrics if isinstance(max_metrics, list) else [max_metrics]):
+                                vo2 = (get_safe(metric, "generic", "vo2MaxPreciseValue")
+                                       or get_safe(metric, "vo2MaxPreciseValue"))
+                                if vo2:
+                                    break
+                except Exception:
+                    pass
+
+            # VO2 Max Fallback 2: training status
+            if vo2 is None:
+                try:
+                    if hasattr(api, "get_training_status"):
+                        t_status = api.get_training_status(day_str)
+                        vo2 = (get_safe(t_status, "vo2MaxValue")
+                               or get_safe(t_status, "mostRecentTerminatedTrainingStatus", "vo2MaxValue"))
+                except Exception:
+                    pass
 
             # Sleep
             sleep_total = sleep_deep = sleep_rem = sleep_score = None

@@ -1,5 +1,5 @@
 # Fly.io Konfiguration für Skywalker Backend
-app = "skywalker-api"
+app = "mugnog"
 primary_region = "fra"  # Frankfurt – nah an Deutschland
 
 [build]
@@ -13,6 +13,7 @@ primary_region = "fra"  # Frankfurt – nah an Deutschland
   auto_stop_machines = false   # Kein Cold Start – immer an
   auto_start_machines = true
   min_machines_running = 1
+
 
 [[vm]]
   memory = "512mb"

@@ -13,7 +13,7 @@ from .xml_validator import validate_zwo, extract_xml_from_response
 load_dotenv()
 
 _client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
-MODEL = "claude-sonnet-4-20250514"
+MODEL = "claude-sonnet-4-6"
 MAX_TOKENS = 4096
 
 SYSTEM_PROMPT = """
@@ -62,6 +62,20 @@ Sei direkt, motivierend und präzise. Kein unnötiges Blabla.
 """
 
 
+GOAL_DESCRIPTIONS = {
+    "ftp":       "FTP steigern – Schwerpunkt Sweet Spot & Intervalle (Seiler-Pyramide)",
+    "endurance": "Ausdauer – maximales Zone-2-Volumen, lange gleichmäßige Fahrten",
+    "weight":    "Abnehmen – FatMax-Training, hohe Fettverbrennung, moderates Tempo",
+    "race":      "Wettkampf-Vorbereitung – Periodisierung, Peaking, spezifische Einheiten",
+    "health":    "Gesundheit & Fitness – ausgewogenes Training, Erholung hat Priorität",
+}
+
+FREQUENCY_DESCRIPTIONS = {
+    "low":  "1–2x pro Woche (wenig Zeit, maximale Effizienz)",
+    "mid":  "3–5x pro Woche (solide Basis, gute Fortschritte)",
+    "high": "Täglich (hohes Volumen, Erholung besonders beachten)",
+}
+
 def _build_context(
     ctl: float,
     atl: float,
@@ -72,6 +86,11 @@ def _build_context(
     df_act: pd.DataFrame,
     checkin: dict | None,
     tp_context: str | None,
+    training_goal: str = "",
+    event_name: str = "",
+    event_date: str = "",
+    training_frequency: str = "",
+    training_days: str = "",
 ) -> str:
     """Assemble the athlete context block that gets prepended to the user message."""
 
@@ -95,19 +114,53 @@ def _build_context(
         ].to_string(index=False)
 
     # Check-in
-    checkin_text = "Kein Check-in heute."
+    checkin_text = "Kein Check-in vorhanden."
     if checkin:
         checkin_text = (
-            f"Schlaf={checkin.get('schlaf')}, Stress={checkin.get('stress')}, "
-            f"Energie={checkin.get('energie')}, Gesundheit={checkin.get('gesundheit')}"
+            f"[{checkin.get('date')}] "
+            f"Schlaf={checkin.get('schlaf')}, Energie={checkin.get('energie')}, "
+            f"Muskeln={checkin.get('muskeln')}, Mental={checkin.get('mental')}, "
+            f"Gesundheit={checkin.get('gesundheit')}, Ernährung={checkin.get('ernahrung')}"
         )
         if checkin.get("rpe") is not None:
-            checkin_text += f", Letztes Training: RPE={checkin.get('rpe')}, Feel={checkin.get('feel')}"
+            checkin_text += f" | Letztes Training: RPE={checkin.get('rpe')}, Feel={checkin.get('feel')}"
 
     tp_block = f"\nTrainingPeaks Wochenplan:\n{tp_context}" if tp_context else ""
 
+    goal_text = GOAL_DESCRIPTIONS.get(training_goal, "Kein Ziel definiert")
+    freq_text = FREQUENCY_DESCRIPTIONS.get(training_frequency, "Nicht angegeben")
+
+    DAY_LABELS = {"mon": "Mo", "tue": "Di", "wed": "Mi", "thu": "Do", "fri": "Fr", "sat": "Sa", "sun": "So"}
+    if training_days:
+        days_list = [DAY_LABELS.get(d, d) for d in training_days.split(",") if d]
+        days_text = ", ".join(days_list) if days_list else "Nicht angegeben"
+    else:
+        days_text = "Nicht angegeben"
+
+    event_text = "Kein Event eingetragen."
+    if event_name and event_date:
+        try:
+            from datetime import date
+            ev = date.fromisoformat(event_date)
+            days_left = (ev - date.today()).days
+            weeks_left = days_left // 7
+            if days_left < 0:
+                event_text = f"{event_name} (war am {event_date} – vergangen)"
+            elif days_left == 0:
+                event_text = f"{event_name} – HEUTE! 🏁"
+            else:
+                event_text = f"{event_name} am {event_date} → noch {weeks_left} Wochen ({days_left} Tage)"
+        except Exception:
+            event_text = f"{event_name} am {event_date}"
+    elif event_name:
+        event_text = event_name
+
     return f"""
 === ATHLETEN-KONTEXT ===
+Trainingsziel: {goal_text}
+Trainingsfrequenz: {freq_text}
+Bevorzugte Trainingstage: {days_text}
+Hauptevent: {event_text}
 Performance: CTL={ctl:.1f} | ATL={atl:.1f} | TSB={tsb:.1f} | FTP={ftp:.0f}W | Wochenlast={weekly_load:.0f}
 Check-in heute: {checkin_text}
 
@@ -132,6 +185,11 @@ def ask_coach(
     df_act: pd.DataFrame,
     checkin: dict | None = None,
     tp_context: str | None = None,
+    training_goal: str = "",
+    event_name: str = "",
+    event_date: str = "",
+    training_frequency: str = "",
+    training_days: str = "",
 ) -> dict:
     """
     Send a coaching request to Claude and return parsed response.
@@ -146,7 +204,8 @@ def ask_coach(
     """
     context = _build_context(
         ctl, atl, tsb, ftp, weekly_load,
-        df_stats, df_act, checkin, tp_context
+        df_stats, df_act, checkin, tp_context,
+        training_goal, event_name, event_date, training_frequency, training_days
     )
     full_message = f"{context}\n\nATHLET FRAGT: {message}"
 

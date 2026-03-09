@@ -3,6 +3,8 @@ Skywalker FastAPI Backend – all REST endpoints for the mobile app.
 Run with: uvicorn backend.main:app --reload --host 0.0.0.0 --port 8000
 """
 import os
+import threading
+import time
 from datetime import datetime
 
 import pandas as pd
@@ -16,6 +18,7 @@ from .models import (
     DashboardResponse, HRVStatus, CombinedStatus, ActivityItem,
     SleepPoint, StepsPoint, TrendsResponse, PMCPoint,
     CheckinToday, CoachResponse, UserCreate, UserLogin, TokenResponse, UserProfile,
+    GoalsRequest, ProfileRequest,
 )
 from . import calculations as calc
 from . import data_manager as dm
@@ -35,9 +38,75 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+def _sync_days_for_user(user_id: int) -> int:
+    """Return 365 if user has little health data, else 30."""
+    try:
+        df = dm.load_stats(user_id)
+        if df.empty or len(df) < 30:
+            return 365
+    except Exception:
+        pass
+    return 30
+
+
+def _daily_sync_loop():
+    """Background thread: sync all Garmin users once per day at ~3am."""
+    from .garmin_sync import sync_activities, sync_health
+    from .database import SessionLocal
+    while True:
+        # Warte bis 3:00 Uhr nachts
+        now = datetime.now()
+        next_run = now.replace(hour=3, minute=0, second=0, microsecond=0)
+        if next_run <= now:
+            next_run = next_run.replace(day=next_run.day + 1)
+        sleep_secs = (next_run - now).total_seconds()
+        time.sleep(sleep_secs)
+
+        # Alle Garmin-User syncen
+        try:
+            db = SessionLocal()
+            users = db.query(User).filter(User.garmin_email.isnot(None)).all()
+            db.close()
+            for u in users:
+                try:
+                    days = _sync_days_for_user(u.id)
+                    sync_activities(u.id, days=days)
+                    sync_health(u.id, days=days)
+                except Exception:
+                    pass
+        except Exception:
+            pass
+
+
 @app.on_event("startup")
 def startup():
     create_tables()
+    _migrate_db()
+    threading.Thread(target=_daily_sync_loop, daemon=True).start()
+
+
+def _migrate_db():
+    """Add new columns to existing tables if they don't exist yet."""
+    from .database import engine
+    with engine.connect() as conn:
+        existing = [row[1] for row in conn.execute(
+            __import__("sqlalchemy").text("PRAGMA table_info(users)")
+        )]
+        migrations = [
+            ("ftp_target",  "ALTER TABLE users ADD COLUMN ftp_target INTEGER DEFAULT 0"),
+            ("weight_kg",   "ALTER TABLE users ADD COLUMN weight_kg REAL DEFAULT 0.0"),
+            ("height_cm",   "ALTER TABLE users ADD COLUMN height_cm INTEGER DEFAULT 0"),
+            ("gender",          "ALTER TABLE users ADD COLUMN gender TEXT DEFAULT ''"),
+            ("training_goal",   "ALTER TABLE users ADD COLUMN training_goal TEXT DEFAULT ''"),
+            ("event_name",      "ALTER TABLE users ADD COLUMN event_name TEXT DEFAULT ''"),
+            ("event_date",          "ALTER TABLE users ADD COLUMN event_date TEXT DEFAULT ''"),
+            ("training_frequency",  "ALTER TABLE users ADD COLUMN training_frequency TEXT DEFAULT ''"),
+            ("training_days",       "ALTER TABLE users ADD COLUMN training_days TEXT DEFAULT ''"),
+        ]
+        for col, sql in migrations:
+            if col not in existing:
+                conn.execute(__import__("sqlalchemy").text(sql))
+        conn.commit()
 
 
 # ── Auth ─────────────────────────────────────────────────────────────────────
@@ -56,7 +125,7 @@ def register(body: UserCreate, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(user)
     token = create_access_token(user.id, user.email)
-    return TokenResponse(access_token=token, user_id=user.id, name=user.name, email=user.email)
+    return TokenResponse(access_token=token, user_id=user.id, name=user.name, email=user.email, ftp_target=user.ftp_target or 0)
 
 
 @app.post("/api/auth/login", response_model=TokenResponse)
@@ -65,7 +134,7 @@ def login(body: UserLogin, db: Session = Depends(get_db)):
     if not user or not verify_password(body.password, user.password_hash):
         raise HTTPException(status_code=401, detail="E-Mail oder Passwort falsch.")
     token = create_access_token(user.id, user.email)
-    return TokenResponse(access_token=token, user_id=user.id, name=user.name, email=user.email)
+    return TokenResponse(access_token=token, user_id=user.id, name=user.name, email=user.email, ftp_target=user.ftp_target or 0)
 
 
 @app.get("/api/auth/me", response_model=UserProfile)
@@ -75,8 +144,39 @@ def get_me(current_user: User = Depends(get_current_user)):
         email=current_user.email,
         name=current_user.name,
         ftp_override=current_user.ftp_override,
+        ftp_target=current_user.ftp_target or 0,
+        training_goal=current_user.training_goal or "",
+        event_name=current_user.event_name or "",
+        event_date=current_user.event_date or "",
+        training_frequency=current_user.training_frequency or "",
+        training_days=current_user.training_days or "",
+        weight_kg=current_user.weight_kg or 0.0,
+        height_cm=current_user.height_cm or 0,
+        gender=current_user.gender or "",
         garmin_connected=bool(current_user.garmin_email),
     )
+
+
+@app.patch("/api/auth/goals")
+def update_goals(body: GoalsRequest, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    current_user.ftp_target = body.ftp_target
+    db.commit()
+    return {"status": "saved", "ftp_target": body.ftp_target}
+
+
+@app.patch("/api/auth/profile")
+def update_profile(body: ProfileRequest, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    if body.ftp_target     is not None: current_user.ftp_target     = body.ftp_target
+    if body.training_goal  is not None: current_user.training_goal  = body.training_goal
+    if body.event_name          is not None: current_user.event_name          = body.event_name
+    if body.event_date          is not None: current_user.event_date          = body.event_date
+    if body.training_frequency  is not None: current_user.training_frequency  = body.training_frequency
+    if body.training_days       is not None: current_user.training_days       = body.training_days
+    if body.weight_kg      is not None: current_user.weight_kg      = body.weight_kg
+    if body.height_cm      is not None: current_user.height_cm      = body.height_cm
+    if body.gender         is not None: current_user.gender         = body.gender
+    db.commit()
+    return {"status": "saved"}
 
 
 @app.post("/api/auth/garmin")
@@ -118,26 +218,34 @@ def get_dashboard(current_user: User = Depends(get_current_user)):
     checkin = dm.get_checkin_today(uid)
     combined = calc.compute_combined_status(hrv_data, tsb, checkin)
 
-    # Latest single values
+    # Latest single values – letzten vorhandenen Wert nehmen (nicht immer täglich vorhanden)
     latest_sleep = None
     latest_rhr = None
     latest_vo2 = None
     if not df_stats.empty:
-        s = df_stats.sort_values("Date", ascending=False).iloc[0]
-        latest_sleep = float(s["Sleep Score"]) if "Sleep Score" in s and pd.notna(s["Sleep Score"]) else None
-        latest_rhr = float(s["RHR"]) if "RHR" in s and pd.notna(s["RHR"]) else None
-        # VO2 Max: letzten vorhandenen Wert nehmen (nicht immer täglich vorhanden)
-        if "VO2 Max" in df_stats.columns:
-            vo2_series = pd.to_numeric(df_stats["VO2 Max"], errors="coerce").dropna()
-            latest_vo2 = float(vo2_series.iloc[-1]) if not vo2_series.empty else None
-        else:
-            latest_vo2 = None
+        df_sorted = df_stats.sort_values("Date")
+        if "Sleep Score" in df_sorted.columns:
+            s = pd.to_numeric(df_sorted["Sleep Score"], errors="coerce").dropna()
+            latest_sleep = float(s.iloc[-1]) if not s.empty else None
+        if "RHR" in df_sorted.columns:
+            r = pd.to_numeric(df_sorted["RHR"], errors="coerce").dropna()
+            latest_rhr = float(r.iloc[-1]) if not r.empty else None
+        if "VO2 Max" in df_sorted.columns:
+            v = pd.to_numeric(df_sorted["VO2 Max"], errors="coerce").dropna()
+            latest_vo2 = float(v.iloc[-1]) if not v.empty else None
+
+    # Fallback: VO2 Max aus Aktivitäten (Garmin schreibt es oft dort rein)
+    if latest_vo2 is None and not df_act.empty and "vo2Max" in df_act.columns:
+        act_vo2 = pd.to_numeric(df_act.sort_values("Date")["vo2Max"], errors="coerce").dropna()
+        if not act_vo2.empty:
+            latest_vo2 = float(act_vo2.iloc[-1])
 
     return DashboardResponse(
         ctl=ctl,
         atl=atl,
         tsb=tsb,
         ftp=ftp,
+        ftp_target=current_user.ftp_target or 250,
         weekly_load=round(weekly_load, 1),
         hrv=HRVStatus(**hrv_data),
         status=CombinedStatus(**combined),
@@ -240,7 +348,7 @@ def get_trends(days: int = 90, current_user: User = Depends(get_current_user)):
         pmc=pmc_points,
         vo2max=vo2_points,
         ftp=ftp,
-        ftp_target=250,
+        ftp_target=current_user.ftp_target or 250,
         training_distribution=dist,
     )
 
@@ -288,7 +396,7 @@ def post_coach(body: CoachRequest, current_user: User = Depends(get_current_user
     atl = float(latest["ATL"]) if latest is not None else 0.0
     tsb = float(latest["TSB"]) if latest is not None else 0.0
     weekly_load = calc.compute_weekly_load(df_act)
-    checkin = dm.get_checkin_today(current_user.id)
+    checkin = dm.get_checkin_recent(current_user.id)
 
     try:
         result = ask_coach(
@@ -298,6 +406,11 @@ def post_coach(body: CoachRequest, current_user: User = Depends(get_current_user
             df_stats=df_stats, df_act=df_act,
             checkin=checkin,
             tp_context=body.tp_context,
+            training_goal=current_user.training_goal or "",
+            event_name=current_user.event_name or "",
+            event_date=current_user.event_date or "",
+            training_frequency=current_user.training_frequency or "",
+            training_days=current_user.training_days or "",
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"AI Coach error: {e}")
@@ -352,6 +465,19 @@ def get_services_status(current_user: User = Depends(get_current_user)):
     }
 
 
+def _background_full_sync(user_id: int):
+    """Sync 365 days of Garmin history in background after first connect."""
+    import threading
+    from .garmin_sync import sync_activities, sync_health
+    def run():
+        try:
+            sync_activities(user_id, days=365)
+            sync_health(user_id, days=365)
+        except Exception:
+            pass
+    threading.Thread(target=run, daemon=True).start()
+
+
 @app.post("/api/services/garmin/connect")
 def connect_garmin_service(
     garmin_email: str,
@@ -364,9 +490,30 @@ def connect_garmin_service(
         result = connect_garmin(current_user.id, garmin_email, garmin_password)
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Garmin Login fehlgeschlagen: {e}")
+    if result.get("needs_mfa"):
+        return {"needs_mfa": True}
     current_user.garmin_email = garmin_email
     current_user.garmin_password_enc = encrypt_garmin_pw(garmin_password)
     db.commit()
+    _background_full_sync(current_user.id)
+    return {"status": "verbunden", "display_name": result.get("display_name")}
+
+
+@app.post("/api/services/garmin/mfa")
+def garmin_mfa_service(
+    code: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    from .garmin_sync import connect_garmin_mfa
+    try:
+        result = connect_garmin_mfa(current_user.id, code)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"MFA fehlgeschlagen: {e}")
+    current_user.garmin_email = result["email"]
+    current_user.garmin_password_enc = encrypt_garmin_pw(result["password"])
+    db.commit()
+    _background_full_sync(current_user.id)
     return {"status": "verbunden", "display_name": result.get("display_name")}
 
 
@@ -377,10 +524,12 @@ def sync_garmin(current_user: User = Depends(get_current_user)):
         raise HTTPException(status_code=400, detail="Garmin nicht verbunden.")
     try:
         acts = sync_activities(current_user.id, days=30)
-        health = sync_health(current_user.id, days=7)
+        health = sync_health(current_user.id, days=30)
         return {"status": "ok", "activities_synced": acts, "health_days_synced": health}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Sync fehlgeschlagen: {e}")
+
+
 
 
 # ── Helpers ──────────────────────────────────────────────────────────────────

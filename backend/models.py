@@ -26,6 +26,7 @@ class TokenResponse(BaseModel):
     user_id: int
     name: str
     email: str
+    ftp_target: int = 0
 
 
 class UserProfile(BaseModel):
@@ -33,21 +34,46 @@ class UserProfile(BaseModel):
     email: str
     name: str
     ftp_override: int
+    ftp_target: int
+    training_goal: str = ""
+    event_name: str = ""
+    event_date: str = ""
+    training_frequency: str = ""
+    training_days: str = ""
+    weight_kg: float = 0.0
+    height_cm: int = 0
+    gender: str = ""
     garmin_connected: bool
+
+
+class GoalsRequest(BaseModel):
+    ftp_target: int
+
+
+class ProfileRequest(BaseModel):
+    ftp_target: Optional[int] = None
+    training_goal: Optional[str] = None
+    event_name: Optional[str] = None
+    event_date: Optional[str] = None
+    training_frequency: Optional[str] = None
+    training_days: Optional[str] = None
+    weight_kg: Optional[float] = None
+    height_cm: Optional[int] = None
+    gender: Optional[str] = None
 
 
 # ── Request Models ──────────────────────────────────────────────────────────
 
 class CheckinRequest(BaseModel):
-    date: str                  # YYYY-MM-DD
-    schlaf: float              # Sleep quality 1-10
-    stress: float              # Stress level 1-10
-    energie: float             # Energy 1-10
-    load_gestern: float        # Yesterday's load 1-10
-    muskeln: float             # Muscle soreness 1-10
-    ernahrung: float           # Nutrition 1-10
-    mental: float              # Mental state 1-10
-    gesundheit: float          # Health 1-10
+    date: str                           # YYYY-MM-DD
+    schlaf: float                       # Sleep quality 1-10
+    energie: float                      # Energy 1-10
+    muskeln: float                      # Muscle soreness 1-10
+    ernahrung: float                    # Nutrition 1-10
+    mental: float                       # Mental state 1-10
+    gesundheit: float                   # Health 1-10
+    stress: Optional[float] = None      # legacy – no longer asked
+    load_gestern: Optional[float] = None  # legacy – no longer asked
 
 
 class MatrixRequest(BaseModel):
@@ -83,6 +109,7 @@ class DashboardResponse(BaseModel):
     atl: float
     tsb: float
     ftp: float
+    ftp_target: int
     weekly_load: float
     hrv: HRVStatus
     status: Optional[CombinedStatus] = None
