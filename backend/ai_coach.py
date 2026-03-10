@@ -114,16 +114,16 @@ def _build_context(
         ].to_string(index=False)
 
     # Check-in
-    checkin_text = "Kein Check-in vorhanden."
+    checkin_text = "KEIN CHECK-IN – bitte darauf hinweisen, dass ein Check-in sinnvoll wäre."
     if checkin:
         checkin_text = (
-            f"[{checkin.get('date')}] "
-            f"Schlaf={checkin.get('schlaf')}, Energie={checkin.get('energie')}, "
-            f"Muskeln={checkin.get('muskeln')}, Mental={checkin.get('mental')}, "
-            f"Gesundheit={checkin.get('gesundheit')}, Ernährung={checkin.get('ernahrung')}"
+            f"✅ CHECK-IN VORHANDEN [{checkin.get('date')}]: "
+            f"Schlaf={checkin.get('schlaf')}/10, Energie={checkin.get('energie')}/10, "
+            f"Muskeln={checkin.get('muskeln')}/10, Mental={checkin.get('mental')}/10, "
+            f"Gesundheit={checkin.get('gesundheit')}/10, Ernährung={checkin.get('ernahrung')}/10"
         )
         if checkin.get("rpe") is not None:
-            checkin_text += f" | Letztes Training: RPE={checkin.get('rpe')}, Feel={checkin.get('feel')}"
+            checkin_text += f" | Post-Workout: RPE={checkin.get('rpe')}/10, Feel={checkin.get('feel')}/10"
 
     tp_block = f"\nTrainingPeaks Wochenplan:\n{tp_context}" if tp_context else ""
 
