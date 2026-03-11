@@ -127,7 +127,11 @@ def _build_context(
 
     tp_block = f"\nTrainingPeaks Wochenplan:\n{tp_context}" if tp_context else ""
 
-    goal_text = GOAL_DESCRIPTIONS.get(training_goal, "Kein Ziel definiert")
+    goal_keys = [g.strip() for g in training_goal.split(",") if g.strip()] if training_goal else []
+    if goal_keys:
+        goal_text = " + ".join(GOAL_DESCRIPTIONS.get(k, k) for k in goal_keys)
+    else:
+        goal_text = "Kein Ziel definiert"
     freq_text = FREQUENCY_DESCRIPTIONS.get(training_frequency, "Nicht angegeben")
 
     DAY_LABELS = {"mon": "Mo", "tue": "Di", "wed": "Mi", "thu": "Do", "fri": "Fr", "sat": "Sa", "sun": "So"}
