@@ -420,6 +420,7 @@ def post_coach(body: CoachRequest, current_user: User = Depends(get_current_user
     tsb = float(latest["TSB"]) if latest is not None else 0.0
     weekly_load = calc.compute_weekly_load(df_act)
     checkin = dm.get_checkin_recent(current_user.id)
+    print(f"[COACH] user_id={current_user.id} email={current_user.email} checkin={'FOUND: '+checkin.get('date','?') if checkin else 'NONE'}", flush=True)
 
     try:
         result = ask_coach(
