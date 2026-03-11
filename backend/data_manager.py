@@ -88,7 +88,10 @@ def _read_csv_safe(path: str) -> pd.DataFrame:
         df.rename(columns=_ACT_COL_MAP, inplace=True)
         df.rename(columns=_STATS_COL_MAP, inplace=True)
         if "Date" in df.columns:
-            df["Date"] = pd.to_datetime(df["Date"], errors="coerce")
+            try:
+                df["Date"] = pd.to_datetime(df["Date"], format="mixed", dayfirst=False, errors="coerce")
+            except TypeError:
+                df["Date"] = pd.to_datetime(df["Date"], errors="coerce")
             df.dropna(subset=["Date"], inplace=True)
             df.sort_values("Date", inplace=True)
         return df
@@ -205,6 +208,8 @@ def save_checkin(data: dict, user_id: int | None = None) -> None:
         df = df[df["_date_str"] != today_str].drop(columns=["_date_str"])
 
     df = pd.concat([df, pd.DataFrame([new_row])], ignore_index=True)
+    # Normalize all dates to YYYY-MM-DD to avoid mixed-format parsing issues
+    df["Date"] = pd.to_datetime(df["Date"], errors="coerce").dt.strftime("%Y-%m-%d")
     df.to_csv(checkin_path, index=False)
 
 
