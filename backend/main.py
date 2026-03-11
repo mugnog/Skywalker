@@ -373,6 +373,29 @@ def post_checkin(body: CheckinRequest, current_user: User = Depends(get_current_
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.get("/api/checkin/debug")
+def debug_checkin(current_user: User = Depends(get_current_user)):
+    """Debug: returns user ID, checkin file path, and raw recent checkin data."""
+    from .database import user_data_path
+    import os
+    checkin_path = os.path.join(user_data_path(current_user.id), "daily_checkin.csv")
+    raw = ""
+    if os.path.exists(checkin_path):
+        with open(checkin_path) as f:
+            raw = f.read()
+    recent = dm.get_checkin_recent(current_user.id)
+    today = dm.get_checkin_today(current_user.id)
+    return {
+        "user_id": current_user.id,
+        "email": current_user.email,
+        "checkin_path": checkin_path,
+        "file_exists": os.path.exists(checkin_path),
+        "raw_csv": raw,
+        "get_checkin_recent": recent,
+        "get_checkin_today": today,
+    }
+
+
 @app.post("/api/checkin/matrix")
 def post_matrix(body: MatrixRequest, current_user: User = Depends(get_current_user)):
     try:
