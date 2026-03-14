@@ -14,7 +14,7 @@ load_dotenv()
 
 _client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
 MODEL = "claude-sonnet-4-6"
-MAX_TOKENS = 4096
+MAX_TOKENS = 8192
 
 SYSTEM_PROMPT = """
 Du bist "Skywalker", ein professioneller Radsport-Coach und Datenanalyst.
@@ -222,6 +222,7 @@ def ask_coach(
     )
 
     raw = response.content[0].text
+    print(f"[COACH] response tokens={response.usage.output_tokens} stop={response.stop_reason} has_xml={'```' in raw}", flush=True)
 
     # Split briefing (text before XML) from XML
     xml_start = raw.find("```")
