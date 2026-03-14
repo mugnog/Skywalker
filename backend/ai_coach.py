@@ -56,6 +56,7 @@ XML WORKOUT FORMAT (Zwift .zwo):
 
 ANTWORT-FORMAT:
 1. Kurzes Coaching-Briefing auf DEUTSCH (2-4 Sätze, direkt, klar)
+   → PFLICHT: Erste Zeile immer: "⏱ Dauer: XX min" (Gesamtdauer inkl. Warmup + Cooldown)
 2. Dann IMMER ein vollständiges XML-Workout in ```xml``` Tags
 
 Sei direkt, motivierend und präzise. Kein unnötiges Blabla.
@@ -239,8 +240,10 @@ def ask_coach(
 
     if xml_block:
         extracted = extract_xml_from_response(xml_block)
+        print(f"[COACH] extracted={'YES('+str(len(extracted))+')' if extracted else 'NONE'}", flush=True)
         if extracted:
             xml_valid, xml_message, xml_clean = validate_zwo(extracted)
+            print(f"[COACH] xml_valid={xml_valid} xml_clean_len={len(xml_clean) if xml_clean else 0} msg={xml_message}", flush=True)
 
     return {
         "briefing": briefing,
