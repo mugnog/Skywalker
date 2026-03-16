@@ -8,7 +8,7 @@ import time
 from datetime import datetime
 
 import pandas as pd
-from fastapi import FastAPI, HTTPException, UploadFile, File, Depends
+from fastapi import FastAPI, HTTPException, UploadFile, File, Depends, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
@@ -101,7 +101,11 @@ def _migrate_db():
             ("event_name",      "ALTER TABLE users ADD COLUMN event_name TEXT DEFAULT ''"),
             ("event_date",          "ALTER TABLE users ADD COLUMN event_date TEXT DEFAULT ''"),
             ("training_frequency",  "ALTER TABLE users ADD COLUMN training_frequency TEXT DEFAULT ''"),
-            ("training_days",       "ALTER TABLE users ADD COLUMN training_days TEXT DEFAULT ''"),
+            ("training_days",           "ALTER TABLE users ADD COLUMN training_days TEXT DEFAULT ''"),
+        ("strava_access_token",     "ALTER TABLE users ADD COLUMN strava_access_token TEXT"),
+        ("strava_refresh_token",    "ALTER TABLE users ADD COLUMN strava_refresh_token TEXT"),
+        ("strava_expires_at",       "ALTER TABLE users ADD COLUMN strava_expires_at INTEGER"),
+        ("strava_athlete_id",       "ALTER TABLE users ADD COLUMN strava_athlete_id INTEGER"),
         ]
         for col, sql in migrations:
             if col not in existing:
@@ -154,6 +158,8 @@ def get_me(current_user: User = Depends(get_current_user)):
         height_cm=current_user.height_cm or 0,
         gender=current_user.gender or "",
         garmin_connected=bool(current_user.garmin_email),
+        strava_connected=bool(current_user.strava_access_token),
+        strava_athlete_id=current_user.strava_athlete_id,
     )
 
 
@@ -177,6 +183,121 @@ def update_profile(body: ProfileRequest, current_user: User = Depends(get_curren
     if body.gender         is not None: current_user.gender         = body.gender
     db.commit()
     return {"status": "saved"}
+
+
+# ── Strava OAuth ─────────────────────────────────────────────────────────────
+
+@app.get("/api/strava/auth")
+def strava_auth(current_user: User = Depends(get_current_user)):
+    from .strava_sync import get_auth_url
+    from .auth import create_access_token
+    state = create_access_token(current_user.id, current_user.email)
+    return {"url": get_auth_url(state)}
+
+
+@app.get("/api/strava/callback")
+def strava_callback(code: str, state: str, db: Session = Depends(get_db)):
+    from .strava_sync import exchange_code, FRONTEND_URL
+    from .auth import decode_token
+    try:
+        payload = decode_token(state)
+        user_id = payload["user_id"]
+    except Exception:
+        raise HTTPException(status_code=400, detail="Ungültiger State-Token")
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User nicht gefunden")
+    data = exchange_code(code)
+    user.strava_access_token  = data["access_token"]
+    user.strava_refresh_token = data["refresh_token"]
+    user.strava_expires_at    = data["expires_at"]
+    user.strava_athlete_id    = data.get("athlete", {}).get("id")
+    db.commit()
+    from fastapi.responses import RedirectResponse
+    return RedirectResponse(url=f"{FRONTEND_URL}/?strava=connected")
+
+
+@app.delete("/api/strava/disconnect")
+def strava_disconnect(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    current_user.strava_access_token  = None
+    current_user.strava_refresh_token = None
+    current_user.strava_expires_at    = None
+    current_user.strava_athlete_id    = None
+    db.commit()
+    return {"status": "Strava getrennt"}
+
+
+@app.post("/api/strava/sync")
+def strava_sync_manual(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Manually backfill last 30 days of Strava activities."""
+    if not current_user.strava_access_token:
+        raise HTTPException(status_code=400, detail="Strava nicht verbunden")
+    from .strava_sync import get_valid_token, fetch_activities, activity_to_row, save_activity_to_csv
+    import time as _time
+    token = get_valid_token(current_user, db)
+    after_ts = int(_time.time()) - 30 * 86400
+    activities = fetch_activities(token, after_ts=after_ts, per_page=50)
+    ftp = current_user.ftp_override or 230
+    count = 0
+    for act in activities:
+        row = activity_to_row(act, ftp=ftp)
+        if row:
+            save_activity_to_csv(row, current_user.id)
+            count += 1
+    return {"status": "ok", "imported": count}
+
+
+# ── Strava Webhook ────────────────────────────────────────────────────────────
+
+@app.get("/api/webhook/strava")
+def strava_webhook_verify(
+    hub_mode:         str = Query(None, alias="hub.mode"),
+    hub_challenge:    str = Query(None, alias="hub.challenge"),
+    hub_verify_token: str = Query(None, alias="hub.verify_token"),
+):
+    """Strava webhook verification handshake."""
+    from .strava_sync import STRAVA_WEBHOOK_VERIFY_TOKEN
+    if hub_verify_token == STRAVA_WEBHOOK_VERIFY_TOKEN and hub_mode == "subscribe":
+        return {"hub.challenge": hub_challenge}
+    raise HTTPException(status_code=403, detail="Verify token mismatch")
+
+
+@app.post("/api/webhook/strava")
+async def strava_webhook_event(request: Request, db: Session = Depends(get_db)):
+    """Receive Strava activity events and import new cycling activities."""
+    from .strava_sync import get_valid_token, fetch_activity, activity_to_row, save_activity_to_csv
+    body = await request.json()
+    # Only handle new/updated activities
+    if body.get("object_type") != "activity" or body.get("aspect_type") not in ("create", "update"):
+        return {"status": "ignored"}
+    athlete_id = body.get("owner_id")
+    activity_id = body.get("object_id")
+    user = db.query(User).filter(User.strava_athlete_id == athlete_id).first()
+    if not user:
+        return {"status": "unknown_athlete"}
+    try:
+        token = get_valid_token(user, db)
+        act = fetch_activity(token, activity_id)
+        ftp = user.ftp_override or 230
+        row = activity_to_row(act, ftp=ftp)
+        if row:
+            save_activity_to_csv(row, user.id)
+            print(f"[STRAVA] imported activity {activity_id} for user {user.id}", flush=True)
+        return {"status": "ok"}
+    except Exception as e:
+        print(f"[STRAVA] error processing activity {activity_id}: {e}", flush=True)
+        return {"status": "error", "detail": str(e)}
+
+
+@app.get("/api/strava/webhook/setup")
+def strava_webhook_setup(current_user: User = Depends(get_current_user)):
+    """One-time: register Strava webhook subscription."""
+    from .strava_sync import register_webhook, get_webhook_subscription
+    existing = get_webhook_subscription()
+    if existing:
+        return {"status": "already_registered", "subscription": existing}
+    result = register_webhook()
+    return {"status": "registered", "result": result}
 
 
 @app.post("/api/auth/garmin")

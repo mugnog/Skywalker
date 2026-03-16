@@ -34,6 +34,10 @@ class User(Base):
     event_date = Column(String, default="")             # ISO: YYYY-MM-DD
     training_frequency = Column(String, default="")     # low / mid / high
     training_days = Column(String, default="")           # e.g. "mon,wed,fri,sat,sun"
+    strava_access_token  = Column(String, default=None)
+    strava_refresh_token = Column(String, default=None)
+    strava_expires_at    = Column(Integer, default=None)  # Unix timestamp
+    strava_athlete_id    = Column(Integer, default=None)
     weight_kg = Column(Float, default=0.0)
     height_cm = Column(Integer, default=0)
     gender = Column(String, default="")                 # male / female / other

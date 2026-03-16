@@ -44,6 +44,8 @@ class UserProfile(BaseModel):
     height_cm: int = 0
     gender: str = ""
     garmin_connected: bool
+    strava_connected: bool = False
+    strava_athlete_id: Optional[int] = None
 
 
 class GoalsRequest(BaseModel):

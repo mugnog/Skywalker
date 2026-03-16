@@ -59,6 +59,12 @@ def create_access_token(user_id: int, email: str) -> str:
     return jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
 
 
+def decode_token(token: str) -> dict:
+    """Decode JWT and return payload dict with user_id (int)."""
+    payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+    return {"user_id": int(payload["sub"]), "email": payload.get("email")}
+
+
 def get_current_user(
     token: str = Depends(oauth2_scheme),
     db: Session = Depends(get_db),
