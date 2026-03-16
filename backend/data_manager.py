@@ -234,6 +234,7 @@ def save_matrix(date_str: str, rpe: float, feel: float, user_id: int | None = No
         df = pd.concat([df, pd.DataFrame([new_row])], ignore_index=True)
 
     df.drop(columns=["_date_str"], inplace=True)
+    df["Date"] = pd.to_datetime(df["Date"], errors="coerce").dt.strftime("%Y-%m-%d")
     df.to_csv(checkin_path, index=False)
 
 
