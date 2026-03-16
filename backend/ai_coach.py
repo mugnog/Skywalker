@@ -46,37 +46,45 @@ nennt (z.B. "Ich will 2h Zone 2" oder "HIT-Woche"), hat dieser Wunsch IMMER
 Vorrang vor der pyramidalen Logik. Ausführen, aber warnen wenn physiologisch riskant.
 
 XML WORKOUT FORMAT (Zwift .zwo) – EXAKTE STRUKTUR PFLICHT:
-Vorlage (IMMER exakt so aufgebaut):
-  <?xml version="1.0" encoding="utf-8"?>
+Vorlage (IMMER exakt so aufgebaut, kein XML-Header nötig):
   <workout_file>
     <author>Skywalker Coach</author>
     <name>Skywalker Z2 Fundamentals</name>
-    <description>Zone 2 Ausdauer</description>
+    <description>Zone 2 Ausdauer – aerobe Basis</description>
     <sportType>bike</sportType>
-    <tags/>
+    <tags>
+        <tag name="skywalker"/>
+    </tags>
     <workout>
-      <Warmup Duration="480" PowerLow="0.25" PowerHigh="0.75">
-        <textevent timeoffset="10" message="Locker einfahren!"/>
+      <Warmup Duration="480" PowerLow="0.25" PowerHigh="0.75" pace="0">
+        <textevent timeoffset="10" message="Locker einfahren – Beine wecken!"/>
+        <textevent timeoffset="120" message="Kadenz 90 rpm anstreben."/>
+        <textevent timeoffset="360" message="Gleich geht es los – bereit machen!"/>
       </Warmup>
-      <SteadyState Duration="3600" Power="0.65">
-        <textevent timeoffset="60" message="Zone 2 halten!"/>
-        <textevent timeoffset="1800" message="Halbzeit – Kadenz 90 rpm!"/>
-        <textevent timeoffset="3300" message="Fast geschafft!"/>
+      <SteadyState Duration="3600" Power="0.65" pace="0">
+        <textevent timeoffset="60" message="Zone 2 halten – unter 165W bleiben!"/>
+        <textevent timeoffset="900" message="Seiler-Prinzip: 70% der Einheiten hier."/>
+        <textevent timeoffset="1800" message="Halbzeit! Chirurgen-Präzision – Watt konstant halten."/>
+        <textevent timeoffset="2700" message="Noch 15 min – aerobe Effizienz aufbauen!"/>
+        <textevent timeoffset="3300" message="Letzter Push – du wirst stärker!"/>
       </SteadyState>
-      <Cooldown Duration="480" PowerLow="0.50" PowerHigh="0.25">
-        <textevent timeoffset="10" message="Ausfahren und erholen."/>
+      <Cooldown Duration="480" PowerLow="0.55" PowerHigh="0.25" pace="0">
+        <textevent timeoffset="10" message="Ausfahren – Laktat abbauen."/>
+        <textevent timeoffset="240" message="Super Arbeit heute!"/>
       </Cooldown>
     </workout>
   </workout_file>
 
 REGELN:
-- PFLICHT: author, name, description, sportType, tags/, workout – alle 6 Metadaten immer vorhanden
+- PFLICHT: author, name, description, sportType, tags (mit mind. einem <tag name="skywalker"/>), workout
+- JEDER Block MUSS das Attribut pace="0" haben: <Warmup ... pace="0">, <SteadyState ... pace="0">, <Cooldown ... pace="0">, <IntervalsT ... pace="0">
 - <name> je nach Typ: "Skywalker Z2 Fundamentals" / "Skywalker Sweet Spot" / "Skywalker Z2+Sprints" / "Skywalker HIT Rønnestad" / "Skywalker FatMax"
 - Warmup/Cooldown: NUR <Warmup> und <Cooldown> Tags (NIEMALS SteadyState als Warmup/Cooldown!)
-- textevent: IMMER mit timeoffset-Attribut: <textevent timeoffset="60" message="Text"/>
+- Cooldown: PowerLow > PowerHigh (rampt runter, z.B. PowerLow="0.55" PowerHigh="0.25")
+- textevent: <textevent timeoffset="60" message="Text"/> (IMMER timeoffset, kein XML-Header)
 - JEDER Block: mind. 3 textevent-Tags, Themen: Technik, Physiologie, Mental, Humor
-- SteadyState: <SteadyState Duration="secs" Power="0.xx"/>
-- Intervalle: <IntervalsT Repeat="6" OnDuration="30" OffDuration="480" OnPower="1.7" OffPower="0.6"/>
+- SteadyState: <SteadyState Duration="secs" Power="0.xx" pace="0"/>
+- Intervalle: <IntervalsT Repeat="6" OnDuration="30" OffDuration="480" OnPower="1.7" OffPower="0.6" pace="0"/>
 - Bei HIT/Sweet Spot: 4-stufige Aktivierungsleiter nach Warmup (60/70/80/90% FTP, 3min je)
 
 ANTWORT-FORMAT:

@@ -43,7 +43,6 @@ def validate_zwo(xml_string: str) -> tuple[bool, str, str]:
     # Rebuild clean XML
     ET.indent(root, space="  ")
     clean = ET.tostring(root, encoding="unicode", xml_declaration=False)
-    clean = '<?xml version="1.0" encoding="utf-8"?>\n' + clean
 
     # Require at least one workout block
     blocks = list(workout)
