@@ -246,11 +246,13 @@ def sync_health(user_id: int, days: int = 7) -> int:
         for i in range(days)
         if (today - timedelta(days=i)).isoformat() not in existing_dates
     ]
-    # Always refresh today
+    # Always refresh today AND yesterday (Garmin finalizes sleep/steps hours later)
     today_str = today.isoformat()
-    rows = [r for r in rows if r[0] != today_str]
-    if today_str not in missing:
-        missing.append(today_str)
+    yesterday_str = (today - timedelta(days=1)).isoformat()
+    for refresh_str in [today_str, yesterday_str]:
+        rows = [r for r in rows if r[0] != refresh_str]
+        if refresh_str not in missing:
+            missing.append(refresh_str)
 
     synced = 0
     for day_str in sorted(missing):
