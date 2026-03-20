@@ -35,6 +35,7 @@ class UserProfile(BaseModel):
     name: str
     ftp_override: int
     ftp_target: int
+    ftp_current: float = 0.0
     training_goal: str = ""
     event_name: str = ""
     event_date: str = ""
@@ -54,6 +55,7 @@ class GoalsRequest(BaseModel):
 
 class ProfileRequest(BaseModel):
     ftp_target: Optional[int] = None
+    ftp_override: Optional[int] = None
     training_goal: Optional[str] = None
     event_name: Optional[str] = None
     event_date: Optional[str] = None

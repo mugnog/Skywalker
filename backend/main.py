@@ -143,12 +143,15 @@ def login(body: UserLogin, db: Session = Depends(get_db)):
 
 @app.get("/api/auth/me", response_model=UserProfile)
 def get_me(current_user: User = Depends(get_current_user)):
+    df_act = dm.load_activities(current_user.id)
+    ftp_current = current_user.ftp_override or calc.compute_ftp(df_act)
     return UserProfile(
         user_id=current_user.id,
         email=current_user.email,
         name=current_user.name,
         ftp_override=current_user.ftp_override,
         ftp_target=current_user.ftp_target or 0,
+        ftp_current=ftp_current,
         training_goal=current_user.training_goal or "",
         event_name=current_user.event_name or "",
         event_date=current_user.event_date or "",
@@ -173,6 +176,7 @@ def update_goals(body: GoalsRequest, current_user: User = Depends(get_current_us
 @app.patch("/api/auth/profile")
 def update_profile(body: ProfileRequest, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     if body.ftp_target     is not None: current_user.ftp_target     = body.ftp_target
+    if body.ftp_override   is not None: current_user.ftp_override   = body.ftp_override
     if body.training_goal  is not None: current_user.training_goal  = body.training_goal
     if body.event_name          is not None: current_user.event_name          = body.event_name
     if body.event_date          is not None: current_user.event_date          = body.event_date
