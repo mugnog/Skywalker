@@ -521,6 +521,26 @@ def debug_checkin(current_user: User = Depends(get_current_user)):
     }
 
 
+@app.get("/api/checkin/matrix")
+def get_matrix(current_user: User = Depends(get_current_user)):
+    df = dm.load_checkins(current_user.id)
+    if df.empty or "RPE" not in df.columns:
+        return []
+    df = df.dropna(subset=["RPE"])
+    result = []
+    for _, r in df.iterrows():
+        rpe  = r.get("RPE")
+        feel = r.get("Feel")
+        if pd.isna(rpe):
+            continue
+        result.append({
+            "date": r["Date"].strftime("%Y-%m-%d") if hasattr(r["Date"], "strftime") else str(r["Date"]),
+            "rpe":  float(rpe),
+            "feel": float(feel) if not pd.isna(feel) else None,
+        })
+    return result
+
+
 @app.post("/api/checkin/matrix")
 def post_matrix(body: MatrixRequest, current_user: User = Depends(get_current_user)):
     try:
