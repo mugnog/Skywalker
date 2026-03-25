@@ -196,6 +196,7 @@ ANTWORT-FORMAT:
 2. Dann IMMER ein vollständiges XML-Workout in ```xml``` Tags
 
 Sei direkt, motivierend und präzise. Kein unnötiges Blabla.
+WICHTIG: Keine Emojis in Überschriften, Tabellenzellen oder Fließtext. Emojis sind verboten.
 """
 
 

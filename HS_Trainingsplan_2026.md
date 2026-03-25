@@ -205,7 +205,7 @@ Start: 17:00 Uhr (!) → Erste Nacht → ~300km → 2-3h Schlaf → weiterfahren
 | 20 | 5–11. Aug | ~10h | Letztes G2+OU, kurze SS-Einheiten |
 | 21 | 12–18. Aug | ~7h | Nur BM + 1× kurze Intervalleinheit |
 | 22 | 19–27. Aug | ~3–4h | 3× kurze lockere Fahrten, Vorbelastung Mo 25.8. |
-| **Event** | **28. Aug 17:00** | **~500km** | **🏔️⚙️ HÜGEL & STAHL 2026** |
+| **Event** | **28. Aug 17:00** | **~600km** | **🏔️⚙️ HÜGEL & STAHL 2026** |
 
 ### Taper-Woche 22 (Detail)
 | Tag | Einheit | Dauer |
