@@ -587,6 +587,40 @@ def post_coach(body: CoachRequest, current_user: User = Depends(get_current_user
     return CoachResponse(**result)
 
 
+# ── Workout Downloads ────────────────────────────────────────────────────────
+
+from fastapi.responses import Response as FastAPIResponse
+from .workout_converter import zwo_to_erg, zwo_to_tcx, zwo_to_workout_card
+
+class WorkoutDownloadRequest(BaseModel):
+    xml: str
+    ftp: Optional[int] = None
+
+@app.post("/api/workout/download/erg")
+def download_erg(body: WorkoutDownloadRequest, current_user: User = Depends(get_current_user)):
+    df_act = dm.load_activities(current_user.id)
+    ftp = body.ftp or current_user.ftp_override or calc.compute_ftp(df_act)
+    content = zwo_to_erg(body.xml, ftp=int(ftp))
+    return FastAPIResponse(content=content, media_type="text/plain",
+        headers={"Content-Disposition": "attachment; filename=skywalker_workout.erg"})
+
+@app.post("/api/workout/download/tcx")
+def download_tcx(body: WorkoutDownloadRequest, current_user: User = Depends(get_current_user)):
+    df_act = dm.load_activities(current_user.id)
+    ftp = body.ftp or current_user.ftp_override or calc.compute_ftp(df_act)
+    content = zwo_to_tcx(body.xml, ftp=int(ftp))
+    return FastAPIResponse(content=content, media_type="application/xml",
+        headers={"Content-Disposition": "attachment; filename=skywalker_workout.tcx"})
+
+@app.post("/api/workout/download/card")
+def download_card(body: WorkoutDownloadRequest, current_user: User = Depends(get_current_user)):
+    df_act = dm.load_activities(current_user.id)
+    ftp = body.ftp or current_user.ftp_override or calc.compute_ftp(df_act)
+    content = zwo_to_workout_card(body.xml, ftp=int(ftp))
+    return FastAPIResponse(content=content, media_type="text/plain",
+        headers={"Content-Disposition": "attachment; filename=skywalker_workout_card.txt"})
+
+
 # ── Delete Activity ──────────────────────────────────────────────────────────
 
 @app.delete("/api/activities")
