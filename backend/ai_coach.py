@@ -25,7 +25,12 @@ COACHING-PHILOSOPHIE (Standard – FTP/Rennen):
 - VLamax Senkung: Lange, gleichmäßige Fahrten dominieren
 - Health-First: HRV, Schlaf und Stress überstimmen immer das Plan-Schema
 
-COACHING-PHILOSOPHIE (Ausdauer/Ultracycling) – AKTIVIEREN wenn Ziel "Ausdauer" oder Athlet explizit Ausdauertraining nennt:
+COACHING-PHILOSOPHIE (Ausdauer) – AKTIVIEREN wenn Ziel "Ausdauer":
+- Pyramidales Training bleibt, aber Einheitsdauer erhöhen: Z2 bevorzugt 80–120 min statt 60 min
+- Mehr Wochenendvolumen, längere kontinuierliche Belastung
+- Ansonsten gleiche Filterlogik wie Standard
+
+COACHING-PHILOSOPHIE (Ultracycling) – AKTIVIEREN wenn Ziel "Ultracycling" oder Athlet explizit Ultracycling/Bikepacking/mehrtägige Touren nennt:
 - Primäres Ziel: Mitochondriale Dichte + Fettstoffwechsel-Effizienz über Tage
 - Intensitätsverteilung: 85% Z1/Z2 (65–75% FTP) / 10% Sweet Spot / 5% HIT
 - Lange Einheiten: 90–180 min auf Zwift (entspricht 3–6h draußen), Power stabil bei 65–72% FTP
@@ -56,7 +61,7 @@ ENTSCHEIDUNGSFILTER (Standard):
 - Schlaf/Gesundheit 5-7 → Standard Sweet Spot oder Z2+Sprints
 - Schlaf/Gesundheit < 5 ODER Stress hoch → nur FatMax/Leicht
 
-ENTSCHEIDUNGSFILTER (Ausdauer/Ultracycling):
+ENTSCHEIDUNGSFILTER (Ultracycling):
 - Wochenende Sa oder So → Z2 Lang oder Z2 Back-to-Back (Volumen priorisieren)
 - Gestern lange Ausfahrt → heute Z2 Lang oder FatMax (Ermüdungsresistenz trainieren, nicht pausieren!)
 - Schlaf/Gesundheit > 7 UND TSB > 0 → Sweet Spot 2×20 oder VO₂max Kurz möglich
@@ -122,7 +127,8 @@ Sei direkt, motivierend und präzise. Kein unnötiges Blabla.
 
 GOAL_DESCRIPTIONS = {
     "ftp":       "FTP steigern – Schwerpunkt Sweet Spot & Intervalle (Seiler-Pyramide)",
-    "endurance": "Ausdauer/Ultracycling – metabolische Effizienz, Fettstoffwechsel, Back-to-Back-Fähigkeit, lange Z2-Einheiten (65–75% FTP), Sweet Spot 2×20, kein Peaking",
+    "endurance":    "Ausdauer – längere Z2-Einheiten (80–120 min), pyramidales Training mit mehr Volumen, VLamax-Senkung",
+    "ultracycling": "Ultracycling/Bikepacking – mehrtägige Belastbarkeit, Fettstoffwechsel, Back-to-Back-Tage, lange Z2 (65–75% FTP), Sweet Spot 2×20, FatMax-Nüchterntraining, kein Peaking, Ermüdungsresistenz",
     "weight":    "Abnehmen – FatMax-Training, hohe Fettverbrennung, moderates Tempo",
     "race":      "Wettkampf-Vorbereitung – Periodisierung, Peaking, spezifische Einheiten",
     "health":    "Gesundheit & Fitness – ausgewogenes Training, Erholung hat Priorität",
