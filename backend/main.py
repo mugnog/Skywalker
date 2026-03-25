@@ -18,7 +18,7 @@ from .models import (
     DashboardResponse, HRVStatus, CombinedStatus, ActivityItem,
     SleepPoint, StepsPoint, TrendsResponse, PMCPoint,
     CheckinToday, CoachResponse, UserCreate, UserLogin, TokenResponse, UserProfile,
-    GoalsRequest, ProfileRequest,
+    GoalsRequest, ProfileRequest, WorkoutDownloadRequest,
 )
 from . import calculations as calc
 from . import data_manager as dm
@@ -591,10 +591,6 @@ def post_coach(body: CoachRequest, current_user: User = Depends(get_current_user
 
 from fastapi.responses import Response as FastAPIResponse
 from .workout_converter import zwo_to_erg, zwo_to_tcx, zwo_to_workout_card
-
-class WorkoutDownloadRequest(BaseModel):
-    xml: str
-    ftp: Optional[int] = None
 
 @app.post("/api/workout/download/erg")
 def download_erg(body: WorkoutDownloadRequest, current_user: User = Depends(get_current_user)):

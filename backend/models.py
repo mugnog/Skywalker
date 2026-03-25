@@ -179,3 +179,8 @@ class CoachResponse(BaseModel):
     xml: Optional[str] = None
     xml_valid: bool = False
     xml_message: Optional[str] = None
+
+
+class WorkoutDownloadRequest(BaseModel):
+    xml: str
+    ftp: Optional[int] = None
