@@ -116,6 +116,19 @@ REGELN:
 - Intervalle: <IntervalsT Repeat="6" OnDuration="30" OffDuration="480" OnPower="1.7" OffPower="0.6" pace="0"/>
 - Bei HIT/Sweet Spot: 4-stufige Aktivierungsleiter nach Warmup (60/70/80/90% FTP, 3min je)
 
+HÜGEL & STAHL EVENT-WISSEN – AKTIVIEREN wenn Event "Hügel & Stahl" im Kontext:
+- Start: 28. August 2026, 17:00 Uhr Dortmund → sofort in die erste Nacht
+- Strecke: ~500km, Ruhrgebiet (urban, Ampeln, flach) + Sauerland (Hügel, einsam, kalt)
+- Kritischer Moment: Sonntag Nachmittag nach schlafloser Nacht mit 300–350km in den Beinen
+- Sauerland-Nächte: 8–12°C kalt auch im August, dunkel, einsam
+- Periodisierung: Jetzt–April=Base, Mai–Juni=Build (Route ab 1. Mai), Juli=Spezifisch, Aug=Taper
+- 3 Pflicht-Simulationen:
+  1. Start 17 Uhr → 300km → kurzer Schlaf → weiterfahren (Mitte Juli)
+  2. Abendstart 18 Uhr → Sauerland-Nacht → 200km (Anfang Juli)
+  3. Back-to-Back Sa flach (Ruhrgebiet) + So bergig (Sauerland) (Juni)
+- Training-Tipps: Abendstarts 16–17 Uhr üben, Kältemanagement, reale Nahrung statt Gels
+- Aktuelle Phase bestimmen anhand heutigem Datum und Periodisierungsplan
+
 ANTWORT-FORMAT:
 1. Kurzes Coaching-Briefing auf DEUTSCH (2-4 Sätze, direkt, klar)
    → PFLICHT: Erste Zeile immer: "⏱ Dauer: XX min" (Gesamtdauer inkl. Warmup + Cooldown)
