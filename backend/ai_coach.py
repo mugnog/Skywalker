@@ -58,7 +58,7 @@ H&S-SPEZIFISCHE WORKOUT-TYPEN (bei Ultracycling-Ziel oder H&S-Event):
 BM = Basemiles: SteadyState bei 65–70% FTP (~150–161W), Kadenz frei, Fettstoffwechsel
 BM-N = Basemiles Nüchtern: SteadyState bei 61–65% FTP (~140–150W), erste 30 min ohne Carbs
 K3 = Kraft-Ausdauer: 6×6 min bei 86–91% FTP (~198–210W), 50–60 rpm + 3 min @45% (~104W) Pause
-DRIFT = Drift Intervals: 6×8 min bei 79–86% FTP (~181–198W) + 5 min @45–47% (~104–108W) Pause
+DRIFT = Drift Intervals: 6×8 min PROGRESSIV ANSTEIGEND bei 79→81→83→84→85→86% FTP (~181→186→191→193→196→198W) + 5 min @45% (~104W) Pause zwischen jedem Intervall. JEDES Intervall höher als das vorherige – das ist das Kernprinzip von Drift!
 SS-P = SteadyState Push: Blöcke bei 92–96% FTP (~212–222W), Kadenz frei, progressive Varianten:
   - Kurz: 2×6 min @92–96% + 3 min @45% Erholung
   - Lang: 2×14 min @92–96% + 6:45 min @45% Erholung
@@ -124,12 +124,19 @@ REGELN:
 
 H&S-WORKOUT ZWO-BEISPIELE (bei Ultracycling/H&S als Vorlage):
 
-DRIFT INTERVALS (66 min):
+DRIFT INTERVALS (66 min) – PFLICHT: jedes Intervall HÖHER als das vorherige!
   <Warmup Duration="480" PowerLow="0.25" PowerHigh="0.60" pace="0">...</Warmup>
-  <!-- 6× Satz: 8 min @83% + 5 min @46% -->
-  <SteadyState Duration="480" Power="0.83" pace="0">...</SteadyState>
-  <SteadyState Duration="300" Power="0.46" pace="0">...</SteadyState>
-  <!-- ... × 6 -->
+  <SteadyState Duration="480" Power="0.79" pace="0"><textevent timeoffset="10" message="Intervall 1/6 – locker starten, 79% FTP"/></SteadyState>
+  <SteadyState Duration="300" Power="0.45" pace="0"><textevent timeoffset="10" message="Erholung – nächstes Intervall wird höher!"/></SteadyState>
+  <SteadyState Duration="480" Power="0.81" pace="0"><textevent timeoffset="10" message="Intervall 2/6 – 81% FTP, etwas mehr"/></SteadyState>
+  <SteadyState Duration="300" Power="0.45" pace="0">...</SteadyState>
+  <SteadyState Duration="480" Power="0.83" pace="0"><textevent timeoffset="10" message="Intervall 3/6 – 83% FTP"/></SteadyState>
+  <SteadyState Duration="300" Power="0.45" pace="0">...</SteadyState>
+  <SteadyState Duration="480" Power="0.84" pace="0"><textevent timeoffset="10" message="Intervall 4/6 – 84% FTP, Halbzeit"/></SteadyState>
+  <SteadyState Duration="300" Power="0.45" pace="0">...</SteadyState>
+  <SteadyState Duration="480" Power="0.85" pace="0"><textevent timeoffset="10" message="Intervall 5/6 – 85% FTP, fast da!"/></SteadyState>
+  <SteadyState Duration="300" Power="0.45" pace="0">...</SteadyState>
+  <SteadyState Duration="480" Power="0.86" pace="0"><textevent timeoffset="10" message="Intervall 6/6 – 86% FTP, alles raus!"/></SteadyState>
   <Cooldown Duration="480" PowerLow="0.55" PowerHigh="0.25" pace="0">...</Cooldown>
 
 K3 KRAFT-AUSDAUER (70 min):
