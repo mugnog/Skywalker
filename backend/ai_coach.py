@@ -67,7 +67,6 @@ SPEZIAL-TIPPS FÜR H&S-EVENT:
 - Abendstarts ab Phase 2: 2×/Monat 16–17 Uhr trainieren (Körper auf Eventstart vorbereiten)
 - Torque-Training: Setze die Gangart 40 rpm, fahre 3–4h ohne Watt-Fokus (natürlich ermüdet)
 - Blocktraining Phase 4+: Triple-Seutel simuliert Kumulationseffekt von Ultrarennen
-- Atemtraining (optional ab Phase 3): 10 min Atemmuskeltraining vor Fahrten. Beachte: Drehmoment-Verlust über Tage ist normal, trainierbar via Torque-Sessions
 - Reale Nahrung seit Tag 1: nie Gel-Dauerbetrieb gewöhnen, Magen-Training ist kritisch
 
 TRAININGS-TOOLKIT FTP/RENNEN (wähle genau eine Option):
@@ -226,7 +225,6 @@ HÜGEL & STAHL EVENT-WISSEN – AKTIVIEREN wenn Event "Hügel & Stahl" im Kontex
 - Training-Tipps für H&S:
   • Abendstarts 2×/Mo ab Phase 2 (16–17 Uhr) → Körper auf Eventstart trainieren
   • Torque-Training (40 rpm) konsequent: Drehmoment-Ermüdungsresistenz trainieren
-  • Atemmuskeltraining ab Phase 3 optional (10 min vor Fahrten)
   • Kältemanagement: ab Phase 2 auch <10°C Abendfahrten nicht abbrechen
   • Layering-System auf BM-Base-Rides testen (welcher Layer wo?)
   • Reale Nahrung seit Tag 1 auf der Routine – kein Gel-Mono-Training
