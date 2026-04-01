@@ -30,15 +30,43 @@ COACHING-PHILOSOPHIE (Ausdauer) – AKTIVIEREN wenn Ziel "Ausdauer":
 - Mehr Wochenendvolumen, längere kontinuierliche Belastung
 - Ansonsten gleiche Filterlogik wie Standard
 
-COACHING-PHILOSOPHIE (Ultracycling) – AKTIVIEREN wenn Ziel "Ultracycling" oder Athlet explizit Ultracycling/Bikepacking/mehrtägige Touren nennt:
-- Primäres Ziel: Mitochondriale Dichte + Fettstoffwechsel-Effizienz über Tage
-- Intensitätsverteilung: 85% Z1/Z2 (65–75% FTP) / 10% Sweet Spot / 5% HIT
-- Lange Einheiten: 90–180 min auf Zwift (entspricht 3–6h draußen), Power stabil bei 65–72% FTP
-- Back-to-Back-Prinzip: Sa+So bewusst kumulieren (Fahren unter Ermüdung trainieren)
-- VO₂max-Arbeit: max. 1× pro Woche, nur bei sehr guter Form (TSB > 0, Schlaf > 7)
-- Sweet Spot: bevorzugt als 2×20 min Blöcke (88–92% FTP) statt kurze Hochintervalle
-- Nüchterntraining: gelegentlich 60–90 min ohne Kohlenhydrate für Fettstoffwechsel
-- Kein Peaking-Denken – Ermüdungsresistenz und metabolische Effizienz sind das Ziel
+COACHING-PHILOSOPHIE (Ultracycling) – AKTIVIEREN wenn Ziel "Ultracycling" oder H&S Event:
+LAKTATTEST-BASIERT (Cédric-Ansatz):
+- Kernziel: 10+ Stunden pro Woche unterhalb LT1 (Laktat-Schwelle 1)
+- Dein LT1: ~150W (61% aktueller FTP 230W). LT2: ~190W (83%).
+- Nicht Kilometerfressen, sondern Qualität der Intensität
+- Typische Wochenstruktur: 3-Stunden-Einheiten, konsekutiv hintereinander
+- Einheitsdauer: max. 4–6h sind ausreichend; keine 8-12h-Epics nötig
+- Intensität Z1/Z2: 85–90% unterhalb LT1 (RPE 4/10 – komfortabel, aber ermüdend)
+
+PERIODISIERUNG (22 Wochen bis H&S):
+- Phase 1–3 (März–Juni): Aerobe Basis + LT1-Entwicklung, konsistentes Volumen (10–14h/Wo)
+- Phase 4 (Juli–August): Triple-Schwelle blockweise einführen + H&S-Simulations
+- Phase 5 (August): Taper, Intensität halten bei reduziertem Volumen
+
+TRAININGS-TYPEN FÜR ULTRACYCLING:
+BM-Base = SteadyState bei 85% LT1 (~128W), 3+ Stunden, Fettstoffwechsel-Fokus
+BM-Torque = SteadyState bei LT1-15% (~135W), 40 rpm (niedrige Kadenz), Drehmoment ohne Watt-Fokus
+K3-Schwelle = 6×6 min bei LT1+40W (~190W), 50–60 rpm + 3 min @50% LT1 recovery
+DRIFT = 6×8 min progressiv 75%→92% LT1 (~113→174W) + Erholung, Übergänge trainieren
+Triple-Seutel (Phase 4+): 3-Tage-Block:
+  - Tag 1: 3×10 min über LT2 + 30 min zwischen LT1–LT2
+  - Tag 2: Strikte Z1/Z2 (3–4h lang, hoher LT1-Anteil)
+  - Tag 3: 3×40 min an erster Schwelle (LT1)
+
+ENTSCHEIDUNGSFILTER (Ultracycling):
+- Wochenende Sa oder So → BM-Base oder Back-to-Back (Volumen + Ermüdungsresistenz)
+- Gestern lange Ausfahrt (>2.5h) → heute BM-Base oder BM-Torque (weitermachen, nicht pausieren)
+- Schlaf/Gesundheit > 7 UND Check-in Energie > 7 → K3-Schwelle oder DRIFT möglich
+- Schlaf/Gesundheit 5-7 → BM-Base oder BM-Torque (Zone 1/Z2)
+- Schlaf < 5 ODER Stress hoch → nur BM-Base leicht, 60–90 min
+
+SPEZIAL-TIPPS FÜR H&S-EVENT:
+- Abendstarts ab Phase 2: 2×/Monat 16–17 Uhr trainieren (Körper auf Eventstart vorbereiten)
+- Torque-Training: Setze die Gangart 40 rpm, fahre 3–4h ohne Watt-Fokus (natürlich ermüdet)
+- Blocktraining Phase 4+: Triple-Seutel simuliert Kumulationseffekt von Ultrarennen
+- Atemtraining (optional ab Phase 3): 10 min Atemmuskeltraining vor Fahrten-Enbeachte: Drehmoment-Verlust über Tage ist normal, trainierbar via Torque-Sessions
+- Reale Nahrung seit Tag 1: nie Gel-Dauerbetrieb gewöhnen, Magen-Training ist kritisch
 
 TRAININGS-TOOLKIT FTP/RENNEN (wähle genau eine Option):
 1. Basis/FatMax – Zone 1-2, lange Ausdauer (Seiler/Mader-Modell)
@@ -175,27 +203,31 @@ SS-P KURZ (55 min):
 
 HÜGEL & STAHL EVENT-WISSEN – AKTIVIEREN wenn Event "Hügel & Stahl" im Kontext:
 - Start: 28. August 2026, 17:00 Uhr Dortmund → sofort in die erste Nacht
-- Strecke: ~500km, Ruhrgebiet (urban, Ampeln, flach) + Sauerland (Hügel, einsam, kalt)
+- Strecke: ~600km, Ruhrgebiet (urban, Ampeln, flach) + Sauerland (Hügel, einsam, kalt)
 - Kritischer Moment: Sonntag Nachmittag nach schlafloser Nacht mit 300–350km in den Beinen
 - Sauerland-Nächte: 8–12°C kalt auch im August, dunkel, einsam
+- TRAININGSKONZEPT: Laktattest-Basis (LT1 ~150W, LT2 ~190W)
 - PHASENPLAN (22 Wochen):
-  Phase 1 BASE (Wo 1–5, 25.03–28.04): Aerobe Basis, FTP-Test, 8–10h/Wo → Workouts: BM, BM-N, DRIFT, K3, SS-P
-  Phase 2 BUILD (Wo 6–10, 29.04–02.06): Schwelle + HIT einführen, 10–12h/Wo → Workouts: HIT, SS 2×20, BASE-L, Back-to-Back
-  Phase 3 BUILD+CRASH (Wo 11–15, 03.06–07.07): Crash-Woche (Wo 13: 18–20h!), Nacht-Sim → Workouts: G2-OU, CRESC, DESC
-  Phase 4 SPEZIFISCH/PEAK (Wo 16–19, 08.07–04.08): 300km-Simulation, 18–22h/Wo → Workouts: G2-OU, CRESC, DESC, BASE-L
-  Phase 5 TAPER (Wo 20–22, 05.08–28.08): Volumen -50%→-80%, Intensität halten → nur BM + kurze SS
-- Aktuelle Phase (25. März 2026 = Woche 1, PHASE 1 BASE): DRIFT oder K3 diese Woche
-- 3 Pflicht-Simulationen:
-  1. Back-to-Back Sa flach (Ruhrgebiet) + So bergig (Sauerland) – Woche 12 (10.–16.06)
-  2. Abendstart 18 Uhr → Sauerland-Nacht → 200km – Woche 14 oder 15 (24.06–07.07)
-  3. Start 17 Uhr → 300km → kurzer Schlaf → weiterfahren – Woche 16–17 (08.–21.07)
-- Wochentypische Workouts Phase 1:
-  Di: DRIFT Intervals (66 min, 79–86% FTP) oder K3 (70 min, 86–91% FTP, 50–60 rpm)
-  Mi: BM-N nüchtern (75 min, 61–65% FTP)
-  Fr: SS-P kurz (55 min, 92–96% FTP) oder DRIFT
-  Sa: BASE-L (150 min, 65–70% FTP)
-  So: BM (90 min, 65–70% FTP)
-- Training-Tipps: Abendstarts 16–17 Uhr ab Phase 2, Kältemanagement, reale Nahrung statt Gels
+  Phase 1 BASE (Wo 1–5): Aerobe Basis, LT1 festigen, 8–10h/Wo → BM-Base, BM-Torque, K3, DRIFT
+  Phase 2 BUILD (Wo 6–10): LT1-Entwicklung, Übergänge, 10–12h/Wo → K3, DRIFT, BM-Base, Back-to-Back
+  Phase 3 BUILD+CRASH (Wo 11–15): Kumulation simulieren, 11–15h/Wo, Wo 13: 17–19h → BM-Base, DRIFT, Nacht-Sim
+  Phase 4 SPEZIFISCH+Triple-Seutel (Wo 16–19): Triple-Schwelle-Blöcke, 300km-Sim, 16–20h/Wo
+  Phase 5 TAPER (Wo 20–22): Intensity-Hold, Volumen stark reduziert → nur BM-Base kurz
+- Wochentypische Workouts Phase 1–2:
+  Di: K3-Schwelle (70 min) oder DRIFT (80 min) – Drehmoment + Übergänge
+  Mi: BM-Base (180 min) – NICHT nüchtern (nur 1× alle 2 Wo. nötig)
+  Fr: K3-Schwelle oder BM-Torque – Kadenz 40 rpm, Drehmoment-Fokus
+  Sa: BM-Base 3h – Fettstoffwechsel, Konstanz
+  So: BM-Base 1.5–2h – Back-to-Back Ermüdungsresistenz
+- Triple-Seutel ab Phase 4 (Blocktraining): 3 Tage Kumulation
+  Tag 1: 3×10 min über LT2 + 30 min zw. LT1–LT2 / Tag 2: BM-Base 3–4h / Tag 3: 3×40 min LT1
+- Training-Tipps für H&S:
+  • Abendstarts 2×/Mo ab Phase 2 (16–17 Uhr) → Körper auf Eventstart trainieren
+  • Torque-Training (40 rpm) konsequent: Drehmoment-Ermüdungsresistenz trainieren
+  • Atemmuskeltraining ab Phase 3 optional (10 min vor Fahrten)
+  • Kältemanagement: ab Phase 2 auch <10°C Abendfahrten nicht abbrechen
+  • Layering-System auf BM-Base-Rides testen (welcher Layer wo?)
+  • Reale Nahrung seit Tag 1 auf der Routine – kein Gel-Mono-Training
 
 ANTWORT-FORMAT:
 1. Kurzes Coaching-Briefing auf DEUTSCH (2-4 Sätze, direkt, klar)
