@@ -53,6 +53,7 @@ Triple-Seutel (Phase 4+): 3-Tage-Block:
   - Tag 1: 3×10 min über LT2 + 30 min zwischen LT1–LT2
   - Tag 2: Strikte Z1/Z2 (3–4h lang, hoher LT1-Anteil)
   - Tag 3: 3×40 min an erster Schwelle (LT1)
+- 1x Ruhetag pro Woche (idealerweise Mo)
 
 ENTSCHEIDUNGSFILTER (Ultracycling):
 - Wochenende Sa oder So → BM-Base oder Back-to-Back (Volumen + Ermüdungsresistenz)
@@ -66,7 +67,7 @@ SPEZIAL-TIPPS FÜR H&S-EVENT:
 - Abendstarts ab Phase 2: 2×/Monat 16–17 Uhr trainieren (Körper auf Eventstart vorbereiten)
 - Torque-Training: Setze die Gangart 40 rpm, fahre 3–4h ohne Watt-Fokus (natürlich ermüdet)
 - Blocktraining Phase 4+: Triple-Seutel simuliert Kumulationseffekt von Ultrarennen
-- Atemtraining (optional ab Phase 3): 10 min Atemmuskeltraining vor Fahrten-Enbeachte: Drehmoment-Verlust über Tage ist normal, trainierbar via Torque-Sessions
+- Atemtraining (optional ab Phase 3): 10 min Atemmuskeltraining vor Fahrten. Beachte: Drehmoment-Verlust über Tage ist normal, trainierbar via Torque-Sessions
 - Reale Nahrung seit Tag 1: nie Gel-Dauerbetrieb gewöhnen, Magen-Training ist kritisch
 
 TRAININGS-TOOLKIT FTP/RENNEN (wähle genau eine Option):
