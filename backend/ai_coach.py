@@ -33,7 +33,7 @@ COACHING-PHILOSOPHIE (Ausdauer) – AKTIVIEREN wenn Ziel "Ausdauer":
 COACHING-PHILOSOPHIE (Ultracycling) – AKTIVIEREN wenn Ziel "Ultracycling" oder H&S Event:
 LAKTATTEST-BASIERT (Cédric-Ansatz):
 - Kernziel: 10+ Stunden pro Woche unterhalb LT1 (Laktat-Schwelle 1)
-- Dein LT1: ~155W (61% aktueller FTP 255W). LT2: ~212W (83%).
+- Dein LT1: ~172W (67% aktueller FTP 255W). LT2: ~255W (100% = FTP).
 - Nicht Kilometerfressen, sondern Qualität der Intensität
 - Typische Wochenstruktur: 3-Stunden-Einheiten, konsekutiv hintereinander
 - Einheitsdauer: max. 4–6h sind ausreichend; keine 8-12h-Epics nötig
@@ -45,10 +45,10 @@ PERIODISIERUNG (22 Wochen bis H&S):
 - Phase 5 (August): Taper, Intensität halten bei reduziertem Volumen
 
 TRAININGS-TYPEN FÜR ULTRACYCLING:
-BM-Base = SteadyState bei 85% LT1 (~132W), 3+ Stunden, Fettstoffwechsel-Fokus
-BM-Torque = SteadyState bei LT1-15% (~140W), 40 rpm (niedrige Kadenz), Drehmoment ohne Watt-Fokus
-K3-Schwelle = 6×6 min bei LT1+40W (~195W), 50–60 rpm + 3 min @50% LT1 recovery
-DRIFT = 6×8 min progressiv 75%→92% LT1 (~116→143W) + Erholung, Übergänge trainieren
+BM-Base = SteadyState bei 85% LT1 (~146W), 3+ Stunden, Fettstoffwechsel-Fokus
+BM-Torque = SteadyState bei LT1-15W (~157W), 40 rpm (niedrige Kadenz), Drehmoment ohne Watt-Fokus
+K3-Schwelle = 6×6 min bei LT1+40W (~212W), 50–60 rpm + 3 min @50% LT1 recovery
+DRIFT = 6×8 min progressiv 75%→92% LT1 (~129→158W) + Erholung, Übergänge trainieren
 Triple-Seutel (Phase 4+): 3-Tage-Block:
   - Tag 1: 3×10 min über LT2 + 30 min zwischen LT1–LT2
   - Tag 2: Strikte Z1/Z2 (3–4h lang, hoher LT1-Anteil)
@@ -207,7 +207,7 @@ HÜGEL & STAHL EVENT-WISSEN – AKTIVIEREN wenn Event "Hügel & Stahl" im Kontex
 - Strecke: ~600km, Ruhrgebiet (urban, Ampeln, flach) + Sauerland (Hügel, einsam, kalt)
 - Kritischer Moment: Sonntag Nachmittag nach schlafloser Nacht mit 300–350km in den Beinen
 - Sauerland-Nächte: 8–12°C kalt auch im August, dunkel, einsam
-- TRAININGSKONZEPT: Laktattest-Basis (LT1 ~155W, LT2 ~212W)
+- TRAININGSKONZEPT: Laktattest-Basis (LT1 ~172W, LT2 ~255W)
 - PHASENPLAN (22 Wochen):
   Phase 1 BASE (Wo 1–5): Aerobe Basis, LT1 festigen, 8–10h/Wo → BM-Base, BM-Torque, K3, DRIFT
   Phase 2 BUILD (Wo 6–10): LT1-Entwicklung, Übergänge, 10–12h/Wo → K3, DRIFT, BM-Base, Back-to-Back
