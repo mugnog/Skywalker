@@ -147,6 +147,11 @@ Vorlage (IMMER exakt so aufgebaut, kein XML-Header nötig):
   </workout_file>
 
 REGELN:
+- KRITISCH – FTP-DYNAMIK: Power-Werte im XML IMMER aus dem FTP im ATHLETEN-KONTEXT berechnen!
+  Formel: Power = Zielwatt / FTP (als Dezimalzahl, z.B. 146W / 230W = 0.635)
+  Beispiel bei FTP=230W: BM-Base (85% LT1=172W → 146W) → Power="0.635"
+  Beispiel bei FTP=255W: BM-Base (146W / 255W) → Power="0.573"
+  NIEMALS feste Dezimalwerte aus Beispielen blind übernehmen – immer neu rechnen!
 - PFLICHT: author, name, description, sportType, tags (mit mind. einem <tag name="skywalker"/>), workout
 - JEDER Block MUSS das Attribut pace="0" haben: <Warmup ... pace="0">, <SteadyState ... pace="0">, <Cooldown ... pace="0">, <IntervalsT ... pace="0">
 - <name> je nach Typ: "Skywalker Z2 Fundamentals" / "Skywalker Sweet Spot" / "Skywalker Z2+Sprints" / "Skywalker HIT Rønnestad" / "Skywalker FatMax" / "Skywalker Z2 Lang" / "Skywalker Z2 Back-to-Back" / "Skywalker Sweet Spot 2x20" / "Skywalker FatMax Nüchtern" / "Skywalker VO2max Kurz" / "Skywalker Drift Intervals" / "Skywalker K3 Kraft" / "Skywalker SteadyState Push" / "Skywalker HIT 30-15" / "Skywalker Crescendo" / "Skywalker Descendo" / "Skywalker GA2 Over-Unders"
