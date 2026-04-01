@@ -60,6 +60,7 @@ ENTSCHEIDUNGSFILTER (Ultracycling):
 - Schlaf/Gesundheit > 7 UND Check-in Energie > 7 → K3-Schwelle oder DRIFT möglich
 - Schlaf/Gesundheit 5-7 → BM-Base oder BM-Torque (Zone 1/Z2)
 - Schlaf < 5 ODER Stress hoch → nur BM-Base leicht, 60–90 min
+- NUR wenn Ziel="Ultracycling" aktivieren! Sonst Standard-Seiler-Pyramide nutzen.
 
 SPEZIAL-TIPPS FÜR H&S-EVENT:
 - Abendstarts ab Phase 2: 2×/Monat 16–17 Uhr trainieren (Körper auf Eventstart vorbereiten)
