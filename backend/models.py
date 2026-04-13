@@ -47,6 +47,7 @@ class UserProfile(BaseModel):
     garmin_connected: bool
     strava_connected: bool = False
     strava_athlete_id: Optional[int] = None
+    intervals_athlete_id: str = ""
 
 
 class GoalsRequest(BaseModel):
@@ -64,6 +65,7 @@ class ProfileRequest(BaseModel):
     weight_kg: Optional[float] = None
     height_cm: Optional[int] = None
     gender: Optional[str] = None
+    intervals_athlete_id: Optional[str] = None
 
 
 # ── Request Models ──────────────────────────────────────────────────────────

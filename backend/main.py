@@ -106,6 +106,7 @@ def _migrate_db():
         ("strava_refresh_token",    "ALTER TABLE users ADD COLUMN strava_refresh_token TEXT"),
         ("strava_expires_at",       "ALTER TABLE users ADD COLUMN strava_expires_at INTEGER"),
         ("strava_athlete_id",       "ALTER TABLE users ADD COLUMN strava_athlete_id INTEGER"),
+        ("intervals_athlete_id",    "ALTER TABLE users ADD COLUMN intervals_athlete_id TEXT DEFAULT ''"),
         ]
         for col, sql in migrations:
             if col not in existing:
@@ -163,6 +164,7 @@ def get_me(current_user: User = Depends(get_current_user)):
         garmin_connected=bool(current_user.garmin_email),
         strava_connected=bool(current_user.strava_access_token),
         strava_athlete_id=current_user.strava_athlete_id,
+        intervals_athlete_id=current_user.intervals_athlete_id or "",
     )
 
 
@@ -184,9 +186,26 @@ def update_profile(body: ProfileRequest, current_user: User = Depends(get_curren
     if body.training_days       is not None: current_user.training_days       = body.training_days
     if body.weight_kg      is not None: current_user.weight_kg      = body.weight_kg
     if body.height_cm      is not None: current_user.height_cm      = body.height_cm
-    if body.gender         is not None: current_user.gender         = body.gender
+    if body.gender              is not None: current_user.gender              = body.gender
+    if body.intervals_athlete_id is not None: current_user.intervals_athlete_id = body.intervals_athlete_id
     db.commit()
     return {"status": "saved"}
+
+
+# ── intervals.icu ─────────────────────────────────────────────────────────────
+
+@app.get("/api/intervals/plan")
+def get_intervals_plan(current_user: User = Depends(get_current_user)):
+    from .intervals_sync import get_planned_workouts
+    api_key = os.getenv("INTERVALS_API_KEY", "")
+    athlete_id = current_user.intervals_athlete_id or ""
+    if not api_key or not athlete_id:
+        raise HTTPException(status_code=400, detail="intervals.icu nicht konfiguriert.")
+    try:
+        workouts = get_planned_workouts(athlete_id, api_key, days=7)
+        return {"workouts": workouts}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"intervals.icu Fehler: {e}")
 
 
 # ── Strava OAuth ─────────────────────────────────────────────────────────────
@@ -567,6 +586,20 @@ def post_coach(body: CoachRequest, current_user: User = Depends(get_current_user
     checkin = dm.get_checkin_recent(current_user.id)
     print(f"[COACH] user_id={current_user.id} email={current_user.email} checkin={'FOUND: '+checkin.get('date','?') if checkin else 'NONE'}", flush=True)
 
+    # intervals.icu Wochenplan als Coach-Kontext
+    intervals_context = None
+    if current_user.intervals_athlete_id:
+        try:
+            from .intervals_sync import get_weekly_plan_text
+            api_key = os.getenv("INTERVALS_API_KEY", "")
+            if api_key:
+                intervals_context = get_weekly_plan_text(current_user.intervals_athlete_id, api_key)
+        except Exception:
+            pass
+
+    # tp_context: intervals hat Vorrang, sonst manueller tp_context
+    combined_context = intervals_context or body.tp_context
+
     try:
         result = ask_coach(
             message=body.message,
@@ -574,7 +607,7 @@ def post_coach(body: CoachRequest, current_user: User = Depends(get_current_user
             ftp=ftp, weekly_load=weekly_load,
             df_stats=df_stats, df_act=df_act,
             checkin=checkin,
-            tp_context=body.tp_context,
+            tp_context=combined_context,
             training_goal=current_user.training_goal or "",
             event_name=current_user.event_name or "",
             event_date=current_user.event_date or "",
