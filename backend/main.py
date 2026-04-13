@@ -717,16 +717,37 @@ def garmin_mfa_service(
 
 
 @app.post("/api/services/garmin/sync")
-def sync_garmin(current_user: User = Depends(get_current_user)):
-    from .garmin_sync import sync_activities, sync_health
+def sync_garmin(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    from .garmin_sync import sync_activities, sync_health, connect_garmin
     if not current_user.garmin_email:
         raise HTTPException(status_code=400, detail="Garmin nicht verbunden.")
-    try:
+
+    def _do_sync():
         acts = sync_activities(current_user.id, days=30)
         health = sync_health(current_user.id, days=30)
-        return {"status": "ok", "activities_synced": acts, "health_days_synced": health}
+        return acts, health
+
+    try:
+        acts, health = _do_sync()
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Sync fehlgeschlagen: {e}")
+        # Token abgelaufen – neu einloggen mit gespeichertem Passwort
+        if "authenticated" in str(e).lower() or "auth" in str(e).lower():
+            pw = decrypt_garmin_pw(current_user.garmin_password_enc) if current_user.garmin_password_enc else None
+            if not pw:
+                raise HTTPException(status_code=500, detail="Garmin-Session abgelaufen. Bitte in Einstellungen neu verbinden.")
+            try:
+                result = connect_garmin(current_user.id, current_user.garmin_email, pw)
+                if result.get("needs_mfa"):
+                    raise HTTPException(status_code=500, detail="Garmin MFA erforderlich. Bitte in Einstellungen neu verbinden.")
+                acts, health = _do_sync()
+            except HTTPException:
+                raise
+            except Exception as e2:
+                raise HTTPException(status_code=500, detail=f"Sync fehlgeschlagen: {e2}")
+        else:
+            raise HTTPException(status_code=500, detail=f"Sync fehlgeschlagen: {e}")
+
+    return {"status": "ok", "activities_synced": acts, "health_days_synced": health}
 
 
 
