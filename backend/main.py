@@ -731,10 +731,14 @@ def sync_garmin(current_user: User = Depends(get_current_user), db: Session = De
         acts, health = _do_sync()
     except Exception as e:
         # Token abgelaufen – neu einloggen mit gespeichertem Passwort
-        if "authenticated" in str(e).lower() or "auth" in str(e).lower():
-            pw = decrypt_garmin_pw(current_user.garmin_password_enc) if current_user.garmin_password_enc else None
+        if "authenticated" in str(e).lower() or "auth" in str(e).lower() or "invalidtoken" in str(e).lower() or "invalid" in str(type(e).__name__).lower():
+            pw = None
+            try:
+                pw = decrypt_garmin_pw(current_user.garmin_password_enc) if current_user.garmin_password_enc else None
+            except Exception:
+                pass
             if not pw:
-                raise HTTPException(status_code=500, detail="Garmin-Session abgelaufen. Bitte in Einstellungen neu verbinden.")
+                raise HTTPException(status_code=503, detail="Garmin-Verbindung abgelaufen. Bitte unter Einstellungen → Garmin neu verbinden.")
             try:
                 result = connect_garmin(current_user.id, current_user.garmin_email, pw)
                 if result.get("needs_mfa"):
