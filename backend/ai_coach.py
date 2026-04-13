@@ -127,7 +127,7 @@ Vorlage (IMMER exakt so aufgebaut, kein XML-Header nötig):
         <tag name="skywalker"/>
     </tags>
     <workout>
-      <Warmup Duration="480" PowerLow="0.25" PowerHigh="0.75" pace="0">
+      <Warmup Duration="480" PowerLow="0.43" PowerHigh="0.75" pace="0">
         <textevent timeoffset="10" message="Locker einfahren – Beine wecken!"/>
         <textevent timeoffset="120" message="Kadenz 90 rpm anstreben."/>
         <textevent timeoffset="360" message="Gleich geht es los – bereit machen!"/>
@@ -139,7 +139,7 @@ Vorlage (IMMER exakt so aufgebaut, kein XML-Header nötig):
         <textevent timeoffset="2700" message="Noch 15 min – aerobe Effizienz aufbauen!"/>
         <textevent timeoffset="3300" message="Letzter Push – du wirst stärker!"/>
       </SteadyState>
-      <Cooldown Duration="480" PowerLow="0.55" PowerHigh="0.25" pace="0">
+      <Cooldown Duration="480" PowerLow="0.55" PowerHigh="0.43" pace="0">
         <textevent timeoffset="10" message="Ausfahren – Laktat abbauen."/>
         <textevent timeoffset="240" message="Super Arbeit heute!"/>
       </Cooldown>
@@ -159,7 +159,7 @@ REGELN:
 H&S-WORKOUT ZWO-BEISPIELE (bei Ultracycling/H&S als Vorlage):
 
 DRIFT INTERVALS (66 min) – PFLICHT: jedes Intervall HÖHER als das vorherige!
-  <Warmup Duration="480" PowerLow="0.25" PowerHigh="0.60" pace="0">...</Warmup>
+  <Warmup Duration="480" PowerLow="0.43" PowerHigh="0.60" pace="0">...</Warmup>
   <SteadyState Duration="480" Power="0.79" pace="0"><textevent timeoffset="10" message="Intervall 1/6 – locker starten, 79% FTP"/></SteadyState>
   <SteadyState Duration="300" Power="0.45" pace="0"><textevent timeoffset="10" message="Erholung – nächstes Intervall wird höher!"/></SteadyState>
   <SteadyState Duration="480" Power="0.81" pace="0"><textevent timeoffset="10" message="Intervall 2/6 – 81% FTP, etwas mehr"/></SteadyState>
@@ -171,36 +171,36 @@ DRIFT INTERVALS (66 min) – PFLICHT: jedes Intervall HÖHER als das vorherige!
   <SteadyState Duration="480" Power="0.85" pace="0"><textevent timeoffset="10" message="Intervall 5/6 – 85% FTP, fast da!"/></SteadyState>
   <SteadyState Duration="300" Power="0.45" pace="0">...</SteadyState>
   <SteadyState Duration="480" Power="0.86" pace="0"><textevent timeoffset="10" message="Intervall 6/6 – 86% FTP, alles raus!"/></SteadyState>
-  <Cooldown Duration="480" PowerLow="0.55" PowerHigh="0.25" pace="0">...</Cooldown>
+  <Cooldown Duration="480" PowerLow="0.55" PowerHigh="0.43" pace="0">...</Cooldown>
 
 K3 KRAFT-AUSDAUER (70 min):
-  <Warmup Duration="480" PowerLow="0.25" PowerHigh="0.65" pace="0">...</Warmup>
+  <Warmup Duration="480" PowerLow="0.43" PowerHigh="0.65" pace="0">...</Warmup>
   <!-- 6× Satz: 6 min @88% (50-60 rpm) + 3 min @45% -->
   <SteadyState Duration="360" Power="0.88" pace="0">...</SteadyState>
   <SteadyState Duration="180" Power="0.45" pace="0">...</SteadyState>
   <!-- ... × 6 -->
-  <Cooldown Duration="480" PowerLow="0.55" PowerHigh="0.25" pace="0">...</Cooldown>
+  <Cooldown Duration="480" PowerLow="0.55" PowerHigh="0.43" pace="0">...</Cooldown>
 
 HIT 30-15 (82 min, 3 Sätze à 10×30/15):
-  <Warmup Duration="600" PowerLow="0.25" PowerHigh="0.65" pace="0">...</Warmup>
+  <Warmup Duration="600" PowerLow="0.43" PowerHigh="0.65" pace="0">...</Warmup>
   <SteadyState Duration="240" Power="0.50" pace="0">...</SteadyState> <!-- Aktivierung -->
   <IntervalsT Repeat="10" OnDuration="30" OffDuration="15" OnPower="1.35" OffPower="0.50" pace="0">...</IntervalsT>
   <SteadyState Duration="300" Power="0.50" pace="0">...</SteadyState> <!-- Satzpause -->
   <IntervalsT Repeat="10" OnDuration="30" OffDuration="15" OnPower="1.35" OffPower="0.50" pace="0">...</IntervalsT>
   <SteadyState Duration="300" Power="0.50" pace="0">...</SteadyState>
   <IntervalsT Repeat="10" OnDuration="30" OffDuration="15" OnPower="1.35" OffPower="0.50" pace="0">...</IntervalsT>
-  <Cooldown Duration="600" PowerLow="0.55" PowerHigh="0.25" pace="0">...</Cooldown>
+  <Cooldown Duration="600" PowerLow="0.55" PowerHigh="0.43" pace="0">...</Cooldown>
 
 SS-P KURZ (55 min):
-  <Warmup Duration="480" PowerLow="0.25" PowerHigh="0.65" pace="0">...</Warmup>
+  <Warmup Duration="480" PowerLow="0.43" PowerHigh="0.65" pace="0">...</Warmup>
   <SteadyState Duration="240" Power="0.60" pace="0">...</SteadyState> <!-- Aktivierung -->
   <SteadyState Duration="360" Power="0.94" pace="0">...</SteadyState> <!-- 6 min @94% -->
   <SteadyState Duration="180" Power="0.45" pace="0">...</SteadyState> <!-- 3 min @45% -->
   <SteadyState Duration="360" Power="0.94" pace="0">...</SteadyState>
   <SteadyState Duration="180" Power="0.45" pace="0">...</SteadyState>
-  <Cooldown Duration="480" PowerLow="0.55" PowerHigh="0.25" pace="0">...</Cooldown>
+  <Cooldown Duration="480" PowerLow="0.55" PowerHigh="0.43" pace="0">...</Cooldown>
 - Warmup/Cooldown: NUR <Warmup> und <Cooldown> Tags (NIEMALS SteadyState als Warmup/Cooldown!)
-- Cooldown: PowerLow > PowerHigh (rampt runter, z.B. PowerLow="0.55" PowerHigh="0.25")
+- Cooldown: PowerLow > PowerHigh (rampt runter, z.B. PowerLow="0.55" PowerHigh="0.43")
 - textevent: <textevent timeoffset="60" message="Text"/> (IMMER timeoffset, kein XML-Header)
 - JEDER Block: mind. 3 textevent-Tags, Themen: Technik, Physiologie, Mental, Humor
 - SteadyState: <SteadyState Duration="secs" Power="0.xx" pace="0"/>
