@@ -308,7 +308,7 @@ def _build_context(
         if checkin.get("rpe") is not None:
             checkin_text += f" | Post-Workout: RPE={checkin.get('rpe')}/10, Feel={checkin.get('feel')}/10"
 
-    tp_block = f"\nTrainingPeaks Wochenplan:\n{tp_context}" if tp_context else ""
+    tp_block = f"\nintervals.icu / Trainingsplan (NUR ALS KONTEXT – du erstellst trotzdem eigene Empfehlung + XML wie gewohnt, kannst aber auf den Plan eingehen oder Alternativen vorschlagen):\n{tp_context}" if tp_context else ""
 
     goal_keys = [g.strip() for g in training_goal.split(",") if g.strip()] if training_goal else []
     if goal_keys:
