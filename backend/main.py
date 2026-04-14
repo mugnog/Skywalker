@@ -763,26 +763,12 @@ def sync_garmin(current_user: User = Depends(get_current_user), db: Session = De
     try:
         acts, health = _do_sync()
     except Exception as e:
-        # Token abgelaufen – neu einloggen mit gespeichertem Passwort
-        if "authenticated" in str(e).lower() or "auth" in str(e).lower() or "invalidtoken" in str(e).lower() or "invalid" in str(type(e).__name__).lower():
-            pw = None
-            try:
-                pw = decrypt_garmin_pw(current_user.garmin_password_enc) if current_user.garmin_password_enc else None
-            except Exception:
-                pass
-            if not pw:
-                raise HTTPException(status_code=503, detail="Garmin-Verbindung abgelaufen. Bitte unter Einstellungen → Garmin neu verbinden.")
-            try:
-                result = connect_garmin(current_user.id, current_user.garmin_email, pw)
-                if result.get("needs_mfa"):
-                    raise HTTPException(status_code=500, detail="Garmin MFA erforderlich. Bitte in Einstellungen neu verbinden.")
-                acts, health = _do_sync()
-            except HTTPException:
-                raise
-            except Exception as e2:
-                raise HTTPException(status_code=500, detail=f"Sync fehlgeschlagen: {e2}")
-        else:
-            raise HTTPException(status_code=500, detail=f"Sync fehlgeschlagen: {e}")
+        err = str(e).lower()
+        if "authenticated" in err or "invalidtoken" in err or "invalid" in str(type(e).__name__).lower():
+            raise HTTPException(status_code=503, detail="Garmin-Verbindung abgelaufen. Bitte unter Einstellungen → Garmin neu verbinden.")
+        if "429" in err or "rate limit" in err:
+            raise HTTPException(status_code=503, detail="Garmin blockiert aktuell Anfragen (Rate Limit). Bitte später nochmal versuchen.")
+        raise HTTPException(status_code=500, detail=f"Sync fehlgeschlagen: {e}")
 
     return {"status": "ok", "activities_synced": acts, "health_days_synced": health}
 
