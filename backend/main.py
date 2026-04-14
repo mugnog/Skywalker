@@ -82,7 +82,8 @@ def _daily_sync_loop():
 def startup():
     create_tables()
     _migrate_db()
-    threading.Thread(target=_daily_sync_loop, daemon=True).start()
+    # Auto-Sync deaktiviert – manueller Sync über App (verhindert Garmin Rate Limit)
+    # threading.Thread(target=_daily_sync_loop, daemon=True).start()
 
 
 def _migrate_db():
