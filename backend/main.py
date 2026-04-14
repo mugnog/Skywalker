@@ -203,7 +203,7 @@ def get_intervals_plan(current_user: User = Depends(get_current_user)):
     if not api_key or not athlete_id:
         raise HTTPException(status_code=400, detail="intervals.icu nicht konfiguriert.")
     try:
-        workouts = get_planned_workouts(athlete_id, api_key, days=7)
+        workouts = get_planned_workouts(athlete_id, api_key, days=14)
         return {"workouts": workouts}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"intervals.icu Fehler: {e}")
