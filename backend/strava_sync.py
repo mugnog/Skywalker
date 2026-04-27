@@ -149,6 +149,23 @@ def save_activity_to_csv(row: dict, user_id: int) -> bool:
     return True
 
 
+def delete_activity_from_csv(activity_id: str, user_id: int) -> bool:
+    """Remove a Strava activity from the CSV by activityId."""
+    import pandas as pd
+    from .data_manager import _user_files, _read_csv_safe
+
+    _, act_path, _ = _user_files(user_id)
+    df = _read_csv_safe(act_path)
+    if df.empty or "activityId" not in df.columns:
+        return False
+    before = len(df)
+    df = df[df["activityId"].astype(str) != str(activity_id)]
+    if len(df) < before:
+        df.to_csv(act_path, index=False)
+        return True
+    return False
+
+
 def register_webhook() -> dict:
     """Register Strava webhook subscription (run once after deploy)."""
     resp = requests.post(

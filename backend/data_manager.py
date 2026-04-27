@@ -109,6 +109,11 @@ def load_activities(user_id: int | None = None) -> pd.DataFrame:
     df = _read_csv_safe(path)
     if df.empty or "Date" not in df.columns or "activityName" not in df.columns:
         return df
+    # Normalize distance: Garmin exports meters, Strava already stores km.
+    # Values > 1000 are almost certainly meters → convert to km.
+    if "distance" in df.columns:
+        df["distance"] = pd.to_numeric(df["distance"], errors="coerce")
+        df.loc[df["distance"] > 1000, "distance"] = (df.loc[df["distance"] > 1000, "distance"] / 1000).round(2)
     blacklist = load_blacklist(user_id)
     if blacklist:
         mask = df.apply(

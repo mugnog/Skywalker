@@ -256,19 +256,35 @@ def strava_sync_manual(current_user: User = Depends(get_current_user), db: Sessi
     """Manually backfill last 30 days of Strava activities."""
     if not current_user.strava_access_token:
         raise HTTPException(status_code=400, detail="Strava nicht verbunden")
-    from .strava_sync import get_valid_token, fetch_activities, activity_to_row, save_activity_to_csv
+    from .strava_sync import get_valid_token, fetch_activities, activity_to_row, save_activity_to_csv, delete_activity_from_csv
+    from .data_manager import _user_files, _read_csv_safe
     import time as _time
+    import pandas as pd
     token = get_valid_token(current_user, db)
     after_ts = int(_time.time()) - 30 * 86400
     activities = fetch_activities(token, after_ts=after_ts, per_page=50)
     ftp = current_user.ftp_override or 230
+    strava_ids = set()
     count = 0
     for act in activities:
         row = activity_to_row(act, ftp=ftp)
         if row:
             save_activity_to_csv(row, current_user.id)
+            strava_ids.add(str(act.get("id", "")))
             count += 1
-    return {"status": "ok", "imported": count}
+    # Remove Strava activities from CSV that no longer exist on Strava
+    _, act_path, _ = _user_files(current_user.id)
+    df = _read_csv_safe(act_path)
+    if not df.empty and "activityId" in df.columns:
+        strava_rows = df[df["activityId"].astype(str).str.match(r"^\d{10,}$")]
+        to_delete = strava_rows[~strava_rows["activityId"].astype(str).isin(strava_ids)]
+        deleted = 0
+        for aid in to_delete["activityId"].astype(str):
+            if delete_activity_from_csv(aid, current_user.id):
+                deleted += 1
+    else:
+        deleted = 0
+    return {"status": "ok", "imported": count, "deleted": deleted}
 
 
 # ── Strava Webhook ────────────────────────────────────────────────────────────
@@ -291,15 +307,26 @@ async def strava_webhook_event(request: Request, db: Session = Depends(get_db)):
     """Receive Strava activity events and import new cycling activities."""
     from .strava_sync import get_valid_token, fetch_activity, activity_to_row, save_activity_to_csv
     body = await request.json()
-    # Only handle new/updated activities
-    if body.get("object_type") != "activity" or body.get("aspect_type") not in ("create", "update"):
+    if body.get("object_type") != "activity":
         return {"status": "ignored"}
+    aspect_type = body.get("aspect_type")
     athlete_id = body.get("owner_id")
     activity_id = body.get("object_id")
     user = db.query(User).filter(User.strava_athlete_id == athlete_id).first()
     if not user:
         return {"status": "unknown_athlete"}
+
+    # Handle delete
+    if aspect_type == "delete":
+        from .strava_sync import delete_activity_from_csv
+        delete_activity_from_csv(str(activity_id), user.id)
+        print(f"[STRAVA] deleted activity {activity_id} for user {user.id}", flush=True)
+        return {"status": "deleted"}
+
+    if aspect_type not in ("create", "update"):
+        return {"status": "ignored"}
     try:
+        from .strava_sync import get_valid_token, fetch_activity, activity_to_row, save_activity_to_csv
         token = get_valid_token(user, db)
         act = fetch_activity(token, activity_id)
         ftp = user.ftp_override or 230
@@ -690,6 +717,7 @@ def get_services_status(current_user: User = Depends(get_current_user)):
     return {
         "garmin": {
             "connected": bool(current_user.garmin_email),
+            "verified": False,  # Kann nicht ohne Live-Request geprüft werden
             "email": current_user.garmin_email or None,
         },
         "whoop": {
