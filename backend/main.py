@@ -822,11 +822,12 @@ def sync_garmin(current_user: User = Depends(get_current_user), db: Session = De
             health = sync_health_browser(current_user.id, current_user.garmin_jwt_web, current_user.garmin_sso_guid or "", days=7)
             return {"status": "ok", "activities_synced": acts, "health_days_synced": health, "method": "di_token"}
         except Exception as e:
-            if "abgelaufen" in str(e).lower():
+            err_str = str(e)
+            if "unauthorized" in err_str.lower() or "authentication" in err_str.lower() or "abgelaufen" in err_str.lower():
                 current_user.garmin_jwt_web = ""
                 db.commit()
                 raise HTTPException(status_code=503, detail="Garmin Token abgelaufen. Bitte garmin_interactive_login.py erneut ausführen.")
-            raise HTTPException(status_code=500, detail=f"Sync fehlgeschlagen: {e}")
+            raise HTTPException(status_code=500, detail=f"Sync fehlgeschlagen: {err_str}")
 
     if not current_user.garmin_email:
         raise HTTPException(status_code=400, detail="Garmin nicht verbunden. Bitte unter Einstellungen → Garmin → Browser-Login verbinden.")

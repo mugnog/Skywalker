@@ -130,41 +130,42 @@ def _garmin_session_from_cookies(jwt_web: str, sso_guid: str):
     return s
 
 
-def _ghd_client_from_tokens(di_token: str, di_refresh: str, di_client_id: str):
-    """Create a garmin_health_data client from stored DI tokens."""
+def _ghd_client_from_tokens(di_token: str, di_refresh: str) -> "GarminClient":
+    """Create a garmin_health_data client from stored DI tokens.
+    Extracts di_client_id from the JWT payload automatically.
+    """
+    import base64, json as _json
     from garmin_health_data.garmin_client.client import GarminClient
+
+    # Extract client_id from JWT payload (Garmin embeds it there)
+    di_client_id = None
+    try:
+        parts = di_token.split(".")
+        if len(parts) >= 2:
+            payload_b64 = parts[1] + "=" * (-len(parts[1]) % 4)
+            payload = _json.loads(base64.urlsafe_b64decode(payload_b64).decode())
+            di_client_id = str(payload.get("client_id", "")) or None
+    except Exception:
+        pass
+
     client = GarminClient()
     client.di_token = di_token
     client.di_refresh_token = di_refresh
     client.di_client_id = di_client_id
+    # Load profile so display_name is available
+    client._load_profile()
     return client
 
 
 def sync_activities_browser(user_id: int, di_token: str, di_refresh: str, days: int = 30) -> int:
-    """Sync activities using DI tokens from garmin_health_data."""
+    """Sync activities using garmin_health_data GarminClient (connectapi.garmin.com)."""
     from datetime import date, timedelta
-    import requests as req
 
     today = date.today()
     start = (today - timedelta(days=days)).isoformat()
 
-    # Use DI Bearer token directly
-    s = req.Session()
-    s.headers.update({
-        "Authorization": f"Bearer {di_token}",
-        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
-        "Accept": "application/json",
-        "NK": "NT",
-        "X-Requested-With": "XMLHttpRequest",
-    })
-
-    r = s.get("https://connect.garmin.com/activitylist-service/activities/search/activities", params={
-        "startDate": start, "endDate": today.isoformat(), "start": 0, "limit": 100,
-    })
-    if r.status_code == 401:
-        raise Exception("DI Token abgelaufen – bitte garmin_interactive_login.py erneut ausführen.")
-    r.raise_for_status()
-    activities = r.json() if isinstance(r.json(), list) else r.json().get("activityList", [])
+    client = _ghd_client_from_tokens(di_token, di_refresh)
+    activities = client.get_activities_by_date(start, today.isoformat())
 
     csv_file = _user_csv(user_id, "garmin_activities.csv")
     HEADERS = ["Date", "Time", "activityName", "sportType", "duration", "elapsedDuration",
@@ -207,30 +208,11 @@ def sync_activities_browser(user_id: int, di_token: str, di_refresh: str, days: 
 
 
 def sync_health_browser(user_id: int, di_token: str, di_refresh: str, days: int = 7) -> int:
-    """Sync health stats using DI Bearer token."""
-    import csv as csv_mod, requests as req
+    """Sync health stats using garmin_health_data GarminClient (connectapi.garmin.com)."""
+    import csv as csv_mod
     from datetime import date, timedelta
 
-    s = req.Session()
-    s.headers.update({
-        "Authorization": f"Bearer {di_token}",
-        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
-        "Accept": "application/json",
-        "NK": "NT",
-        "X-Requested-With": "XMLHttpRequest",
-    })
-
-    # Get display name first
-    display_name = None
-    try:
-        r = s.get("https://connect.garmin.com/userprofile-service/socialProfile")
-        if r.status_code == 200 and r.text.startswith("{"):
-            display_name = r.json().get("displayName")
-    except Exception:
-        pass
-
-    if not display_name:
-        raise Exception("DI Token abgelaufen – bitte garmin_interactive_login.py erneut ausführen.")
+    client = _ghd_client_from_tokens(di_token, di_refresh)
 
     csv_file = _user_csv(user_id, "garmin_stats.csv")
     HEADERS = ["Date", "Weight (lbs)", "Muscle Mass (lbs)", "Body Fat %", "Water %",
@@ -254,21 +236,33 @@ def sync_health_browser(user_id: int, di_token: str, di_refresh: str, days: int 
         existing_rows = [r for r in existing_rows if r[0] != day_str]
         try:
             rhr = steps = sleep_total = sleep_score = hrv_avg = None
-            r = s.get(f"https://connect.garmin.com/usersummary-service/usersummary/daily/{display_name}",
-                      params={"calendarDate": day_str})
-            if r.status_code == 200 and r.text.startswith("{"):
-                d = r.json()
-                rhr = d.get("restingHeartRate")
-                steps = d.get("totalSteps")
 
-            r = s.get(f"https://connect.garmin.com/wellness-service/wellness/dailySleepData/{display_name}",
-                      params={"date": day_str})
-            if r.status_code == 200 and r.text.startswith("{"):
-                sl = r.json().get("dailySleepDTO", {})
+            # Steps via user summary chart
+            try:
+                steps_data = client.get_steps_data(day_str)
+                if steps_data:
+                    total = sum(s.get("steps", 0) or 0 for s in steps_data if isinstance(s, dict))
+                    steps = total if total > 0 else None
+            except Exception:
+                pass
+
+            # Heart rate (resting HR)
+            try:
+                hr_data = client.get_heart_rates(day_str)
+                rhr = hr_data.get("restingHeartRate") if isinstance(hr_data, dict) else None
+            except Exception:
+                pass
+
+            # Sleep
+            try:
+                sleep_data = client.get_sleep_data(day_str)
+                sl = sleep_data.get("dailySleepDTO", {}) if isinstance(sleep_data, dict) else {}
                 t = sl.get("sleepTimeSeconds")
                 sleep_total = round(t / 3600, 2) if t else None
                 sc = sl.get("sleepScores", {})
                 sleep_score = sc.get("overall", {}).get("value") if sc else None
+            except Exception:
+                pass
 
             existing_rows.append([
                 day_str, None, None, None, None,
