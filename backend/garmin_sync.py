@@ -113,6 +113,182 @@ def connect_garmin_mfa(user_id: int, code: str) -> dict:
     raise Exception(result.get("error", "Login fehlgeschlagen"))
 
 
+def _garmin_session_from_cookies(jwt_web: str, sso_guid: str):
+    """Create a requests session using browser cookies for direct Garmin API access."""
+    import requests as req
+    s = req.Session()
+    s.cookies.set("JWT_WEB", jwt_web, domain=".connect.garmin.com")
+    s.cookies.set("GARMIN-SSO", "1", domain=".garmin.com")
+    if sso_guid:
+        s.cookies.set("GARMIN-SSO-CUST-GUID", sso_guid, domain=".garmin.com")
+    s.headers.update({
+        "NK": "NT",
+        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+        "Accept": "application/json",
+        "X-Requested-With": "XMLHttpRequest",
+    })
+    return s
+
+
+def _ghd_client_from_tokens(di_token: str, di_refresh: str, di_client_id: str):
+    """Create a garmin_health_data client from stored DI tokens."""
+    from garmin_health_data.garmin_client.client import GarminClient
+    client = GarminClient()
+    client.di_token = di_token
+    client.di_refresh_token = di_refresh
+    client.di_client_id = di_client_id
+    return client
+
+
+def sync_activities_browser(user_id: int, di_token: str, di_refresh: str, days: int = 30) -> int:
+    """Sync activities using DI tokens from garmin_health_data."""
+    from datetime import date, timedelta
+    import requests as req
+
+    today = date.today()
+    start = (today - timedelta(days=days)).isoformat()
+
+    # Use DI Bearer token directly
+    s = req.Session()
+    s.headers.update({
+        "Authorization": f"Bearer {di_token}",
+        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
+        "Accept": "application/json",
+        "NK": "NT",
+        "X-Requested-With": "XMLHttpRequest",
+    })
+
+    r = s.get("https://connect.garmin.com/activitylist-service/activities/search/activities", params={
+        "startDate": start, "endDate": today.isoformat(), "start": 0, "limit": 100,
+    })
+    if r.status_code == 401:
+        raise Exception("DI Token abgelaufen – bitte garmin_interactive_login.py erneut ausführen.")
+    r.raise_for_status()
+    activities = r.json() if isinstance(r.json(), list) else r.json().get("activityList", [])
+
+    csv_file = _user_csv(user_id, "garmin_activities.csv")
+    HEADERS = ["Date", "Time", "activityName", "sportType", "duration", "elapsedDuration",
+               "movingDuration", "distance", "averageSpeed", "maxSpeed", "averageHR", "maxHR",
+               "hrTimeInZone_1", "hrTimeInZone_2", "hrTimeInZone_3", "hrTimeInZone_4", "hrTimeInZone_5",
+               "avgPower", "maxPower", "normPower", "avgCadence", "maxCadence",
+               "totalAscent", "totalDescent", "steps", "avgStrideLength",
+               "avgStrokes", "totalStrokes", "poolLength", "numLaps",
+               "calories", "trainingEffectLabel", "activityTrainingLoad",
+               "aerobicEffect", "anaerobicEffect", "vo2Max", "lactateThreshold", "activityId"]
+
+    rows = []
+    for act in activities:
+        d = act.get("startTimeLocal", "")
+        atype = str(act.get("activityType", {}).get("typeKey", "")).lower()
+        sport = "cycling" if any(x in atype for x in ["cycl","bik","ride","virtual"]) else \
+                "running" if any(x in atype for x in ["run","treadmill"]) else "other"
+        rows.append([
+            d[:10], d[11:], act.get("activityName","Activity"), sport,
+            act.get("duration",0), act.get("elapsedDuration",0), act.get("movingDuration",0),
+            act.get("distance",0), act.get("averageSpeed",0), act.get("maxSpeed",0),
+            act.get("averageHR"), act.get("maxHR"),
+            None, None, None, None, None,
+            act.get("averagePower") or act.get("avgPower"), act.get("maxPower"),
+            act.get("normPower") or act.get("normalizedPower"),
+            act.get("averageBikingCadenceInRevPerMinute") or act.get("averageCadence"),
+            act.get("maxCadence"), act.get("elevationGain"), act.get("elevationLoss"),
+            None, None, None, None, None, None,
+            act.get("calories"), None, act.get("activityTrainingLoad"),
+            None, None, None, None, act.get("activityId",""),
+        ])
+
+    import csv as csv_mod
+    rows.sort(key=lambda x: (x[0], x[1]), reverse=True)
+    with open(csv_file, "w", newline="", encoding="utf-8") as f:
+        writer = csv_mod.writer(f)
+        writer.writerow(HEADERS)
+        writer.writerows(rows)
+    return len(rows)
+
+
+def sync_health_browser(user_id: int, di_token: str, di_refresh: str, days: int = 7) -> int:
+    """Sync health stats using DI Bearer token."""
+    import csv as csv_mod, requests as req
+    from datetime import date, timedelta
+
+    s = req.Session()
+    s.headers.update({
+        "Authorization": f"Bearer {di_token}",
+        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
+        "Accept": "application/json",
+        "NK": "NT",
+        "X-Requested-With": "XMLHttpRequest",
+    })
+
+    # Get display name first
+    display_name = None
+    try:
+        r = s.get("https://connect.garmin.com/userprofile-service/socialProfile")
+        if r.status_code == 200 and r.text.startswith("{"):
+            display_name = r.json().get("displayName")
+    except Exception:
+        pass
+
+    if not display_name:
+        raise Exception("DI Token abgelaufen – bitte garmin_interactive_login.py erneut ausführen.")
+
+    csv_file = _user_csv(user_id, "garmin_stats.csv")
+    HEADERS = ["Date", "Weight (lbs)", "Muscle Mass (lbs)", "Body Fat %", "Water %",
+               "Sleep Total (hr)", "Sleep Deep (hr)", "Sleep REM (hr)", "Sleep Score",
+               "RHR", "Min HR", "Max HR", "Avg Stress", "Respiration", "SpO2",
+               "VO2 Max", "Training Status", "HRV Status", "HRV Avg",
+               "BP Systolic", "BP Diastolic", "Steps", "Step Goal", "Cals Total", "Cals Active", "Activities"]
+
+    existing_rows = []
+    if os.path.isfile(csv_file):
+        with open(csv_file, "r", newline="", encoding="utf-8-sig") as f:
+            reader = csv_mod.reader(f)
+            all_data = list(reader)
+            if all_data:
+                existing_rows = [r for r in all_data[1:] if r]
+
+    today = date.today()
+    synced = 0
+    for i in range(days):
+        day_str = (today - timedelta(days=i)).isoformat()
+        existing_rows = [r for r in existing_rows if r[0] != day_str]
+        try:
+            rhr = steps = sleep_total = sleep_score = hrv_avg = None
+            r = s.get(f"https://connect.garmin.com/usersummary-service/usersummary/daily/{display_name}",
+                      params={"calendarDate": day_str})
+            if r.status_code == 200 and r.text.startswith("{"):
+                d = r.json()
+                rhr = d.get("restingHeartRate")
+                steps = d.get("totalSteps")
+
+            r = s.get(f"https://connect.garmin.com/wellness-service/wellness/dailySleepData/{display_name}",
+                      params={"date": day_str})
+            if r.status_code == 200 and r.text.startswith("{"):
+                sl = r.json().get("dailySleepDTO", {})
+                t = sl.get("sleepTimeSeconds")
+                sleep_total = round(t / 3600, 2) if t else None
+                sc = sl.get("sleepScores", {})
+                sleep_score = sc.get("overall", {}).get("value") if sc else None
+
+            existing_rows.append([
+                day_str, None, None, None, None,
+                sleep_total, None, None, sleep_score,
+                rhr, None, None, None, None, None,
+                None, None, None, hrv_avg,
+                None, None, steps, None, None, None, ""
+            ])
+            synced += 1
+        except Exception:
+            pass
+
+    existing_rows.sort(key=lambda x: x[0] if x else "", reverse=True)
+    with open(csv_file, "w", newline="", encoding="utf-8") as f:
+        writer = csv_mod.writer(f)
+        writer.writerow(HEADERS)
+        writer.writerows(existing_rows)
+    return synced
+
+
 def _resume_garmin(token_dir: str):
     """Resume Garmin session from saved tokens and restore display_name."""
     import garth

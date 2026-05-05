@@ -39,6 +39,8 @@ class User(Base):
     strava_expires_at    = Column(Integer, default=None)  # Unix timestamp
     strava_athlete_id    = Column(Integer, default=None)
     intervals_athlete_id = Column(String, default="")   # z.B. "i545388"
+    garmin_jwt_web = Column(String, default="")          # Browser JWT_WEB cookie
+    garmin_sso_guid = Column(String, default="")         # Browser SSO GUID cookie
     weight_kg = Column(Float, default=0.0)
     height_cm = Column(Integer, default=0)
     gender = Column(String, default="")                 # male / female / other

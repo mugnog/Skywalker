@@ -351,6 +351,39 @@ def strava_webhook_setup(current_user: User = Depends(get_current_user)):
     return {"status": "registered", "result": result}
 
 
+@app.post("/api/auth/garmin-di-tokens")
+def save_garmin_di_tokens(
+    data: dict,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Save Garmin DI OAuth2 tokens from garmin_health_data login."""
+    di_token = data.get("di_token", "")
+    if not di_token:
+        raise HTTPException(status_code=400, detail="di_token fehlt")
+    current_user.garmin_jwt_web = di_token
+    current_user.garmin_sso_guid = data.get("di_refresh_token", "")
+    db.commit()
+    return {"status": "ok"}
+
+
+@app.post("/api/auth/garmin-browser-token")
+def save_garmin_browser_token(
+    data: dict,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Save Garmin browser cookies (JWT_WEB + SSO GUID) for direct API access."""
+    jwt_web = data.get("jwt_web", "")
+    sso_guid = data.get("sso_guid", "")
+    if not jwt_web:
+        raise HTTPException(status_code=400, detail="jwt_web fehlt")
+    current_user.garmin_jwt_web = jwt_web
+    current_user.garmin_sso_guid = sso_guid
+    db.commit()
+    return {"status": "ok"}
+
+
 @app.post("/api/auth/garmin")
 def connect_garmin(
     garmin_email: str,
@@ -780,26 +813,36 @@ def garmin_mfa_service(
 
 @app.post("/api/services/garmin/sync")
 def sync_garmin(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    from .garmin_sync import sync_activities, sync_health, connect_garmin
-    if not current_user.garmin_email:
-        raise HTTPException(status_code=400, detail="Garmin nicht verbunden.")
+    from .garmin_sync import sync_activities, sync_health, sync_activities_browser, sync_health_browser
 
-    def _do_sync():
-        acts = sync_activities(current_user.id, days=30)
-        health = sync_health(current_user.id, days=30)
-        return acts, health
+    # DI Token Sync (garmin_health_data)
+    if current_user.garmin_jwt_web:
+        try:
+            acts = sync_activities_browser(current_user.id, current_user.garmin_jwt_web, current_user.garmin_sso_guid or "", days=30)
+            health = sync_health_browser(current_user.id, current_user.garmin_jwt_web, current_user.garmin_sso_guid or "", days=7)
+            return {"status": "ok", "activities_synced": acts, "health_days_synced": health, "method": "di_token"}
+        except Exception as e:
+            if "abgelaufen" in str(e).lower():
+                current_user.garmin_jwt_web = ""
+                db.commit()
+                raise HTTPException(status_code=503, detail="Garmin Token abgelaufen. Bitte garmin_interactive_login.py erneut ausführen.")
+            raise HTTPException(status_code=500, detail=f"Sync fehlgeschlagen: {e}")
+
+    if not current_user.garmin_email:
+        raise HTTPException(status_code=400, detail="Garmin nicht verbunden. Bitte unter Einstellungen → Garmin → Browser-Login verbinden.")
 
     try:
-        acts, health = _do_sync()
+        acts = sync_activities(current_user.id, days=30)
+        health = sync_health(current_user.id, days=30)
     except Exception as e:
         err = str(e).lower()
         if "authenticated" in err or "invalidtoken" in err or "invalid" in str(type(e).__name__).lower():
-            raise HTTPException(status_code=503, detail="Garmin-Verbindung abgelaufen. Bitte unter Einstellungen → Garmin neu verbinden.")
-        if "429" in err or "rate limit" in err:
-            raise HTTPException(status_code=503, detail="Garmin blockiert aktuell Anfragen (Rate Limit). Bitte später nochmal versuchen.")
+            raise HTTPException(status_code=503, detail="Garmin-Verbindung abgelaufen. Bitte Browser-Login in Einstellungen neu durchführen.")
+        if "429" in err or "rate limit" in err or "captcha" in err:
+            raise HTTPException(status_code=503, detail="Garmin blockiert Anfragen. Bitte Browser-Login in Einstellungen durchführen.")
         raise HTTPException(status_code=500, detail=f"Sync fehlgeschlagen: {e}")
 
-    return {"status": "ok", "activities_synced": acts, "health_days_synced": health}
+    return {"status": "ok", "activities_synced": acts, "health_days_synced": health, "method": "garth"}
 
 
 
