@@ -130,14 +130,14 @@ def _garmin_session_from_cookies(jwt_web: str, sso_guid: str):
     return s
 
 
-def _ghd_client_from_tokens(di_token: str, di_refresh: str) -> "GarminClient":
+def _ghd_client_from_tokens(di_token: str, di_refresh: str):
     """Create a garmin_health_data client from stored DI tokens.
-    Extracts di_client_id from the JWT payload automatically.
+    Extracts di_client_id from the JWT payload locally – no Garmin request.
+    display_name is NOT loaded here to avoid extra server calls.
     """
     import base64, json as _json
     from garmin_health_data.garmin_client.client import GarminClient
 
-    # Extract client_id from JWT payload (Garmin embeds it there)
     di_client_id = None
     try:
         parts = di_token.split(".")
@@ -152,13 +152,12 @@ def _ghd_client_from_tokens(di_token: str, di_refresh: str) -> "GarminClient":
     client.di_token = di_token
     client.di_refresh_token = di_refresh
     client.di_client_id = di_client_id
-    # Load profile so display_name is available
-    client._load_profile()
+    # Do NOT call _load_profile() here – caller does it once if needed
     return client
 
 
-def sync_activities_browser(user_id: int, di_token: str, di_refresh: str, days: int = 30):
-    """Sync activities using garmin_health_data GarminClient (connectapi.garmin.com).
+def sync_activities_browser(user_id: int, client, days: int = 30):
+    """Sync activities using an existing GarminClient (no extra Garmin requests for setup).
     Returns (count, new_di_token, new_di_refresh) so caller can persist refreshed tokens.
     """
     from datetime import date, timedelta
@@ -166,7 +165,6 @@ def sync_activities_browser(user_id: int, di_token: str, di_refresh: str, days: 
     today = date.today()
     start = (today - timedelta(days=days)).isoformat()
 
-    client = _ghd_client_from_tokens(di_token, di_refresh)
     activities = client.get_activities_by_date(start, today.isoformat())
 
     csv_file = _user_csv(user_id, "garmin_activities.csv")
@@ -209,12 +207,10 @@ def sync_activities_browser(user_id: int, di_token: str, di_refresh: str, days: 
     return len(rows), client.di_token, client.di_refresh_token
 
 
-def sync_health_browser(user_id: int, di_token: str, di_refresh: str, days: int = 7) -> int:
-    """Sync health stats using garmin_health_data GarminClient (connectapi.garmin.com)."""
+def sync_health_browser(user_id: int, client, days: int = 7) -> int:
+    """Sync health stats using an existing GarminClient (no extra Garmin requests for setup)."""
     import csv as csv_mod
     from datetime import date, timedelta
-
-    client = _ghd_client_from_tokens(di_token, di_refresh)
 
     csv_file = _user_csv(user_id, "garmin_stats.csv")
     HEADERS = ["Date", "Weight (lbs)", "Muscle Mass (lbs)", "Body Fat %", "Water %",

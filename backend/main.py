@@ -910,9 +910,13 @@ def sync_garmin(current_user: User = Depends(get_current_user), db: Session = De
     # DI Token Sync (garmin_health_data)
     if current_user.garmin_jwt_web:
         try:
-            acts, new_token, new_refresh = sync_activities_browser(current_user.id, current_user.garmin_jwt_web, current_user.garmin_sso_guid or "", days=30)
-            health = sync_health_browser(current_user.id, new_token or current_user.garmin_jwt_web, new_refresh or current_user.garmin_sso_guid or "", days=7)
-            # Persist refreshed tokens back to DB
+            from .garmin_sync import _ghd_client_from_tokens
+            # Create client once, load profile once (1 Garmin request total for setup)
+            client = _ghd_client_from_tokens(current_user.garmin_jwt_web, current_user.garmin_sso_guid or "")
+            client._load_profile()
+            acts, new_token, new_refresh = sync_activities_browser(current_user.id, client, days=30)
+            health = sync_health_browser(current_user.id, client, days=7)
+            # Persist refreshed tokens back to DB if they changed
             if new_token and new_token != current_user.garmin_jwt_web:
                 current_user.garmin_jwt_web = new_token
                 current_user.garmin_sso_guid = new_refresh or current_user.garmin_sso_guid
