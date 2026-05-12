@@ -367,6 +367,98 @@ def save_garmin_di_tokens(
     return {"status": "ok"}
 
 
+@app.post("/api/auth/garmin/login")
+def garmin_login_start(
+    data: dict,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Start Garmin login via garmin_health_data. Returns needs_mfa if MFA required."""
+    import threading
+    from garmin_health_data.garmin_client.client import GarminClient
+
+    email = data.get("email", "").strip()
+    password = data.get("password", "").strip()
+    if not email or not password:
+        raise HTTPException(status_code=400, detail="Email und Passwort erforderlich")
+
+    uid = current_user.id
+    _garmin_login_sessions[uid] = {"status": "pending", "client": None, "error": None, "mfa_event": threading.Event()}
+
+    def do_login():
+        try:
+            client = GarminClient()
+            result = client.login(email, password, return_on_mfa=True)
+            if isinstance(result, tuple) and result[0] == "needs_mfa":
+                _garmin_login_sessions[uid]["client"] = client
+                _garmin_login_sessions[uid]["status"] = "needs_mfa"
+            else:
+                _garmin_login_sessions[uid]["client"] = client
+                _garmin_login_sessions[uid]["status"] = "done"
+        except Exception as e:
+            _garmin_login_sessions[uid]["status"] = "error"
+            _garmin_login_sessions[uid]["error"] = str(e)
+        finally:
+            _garmin_login_sessions[uid]["mfa_event"].set()
+
+    t = threading.Thread(target=do_login, daemon=True)
+    t.start()
+
+    # Wait up to 60s for login to either need MFA or complete
+    _garmin_login_sessions[uid]["mfa_event"].wait(timeout=60)
+
+    session = _garmin_login_sessions.get(uid, {})
+    status = session.get("status", "pending")
+
+    if status == "error":
+        _garmin_login_sessions.pop(uid, None)
+        raise HTTPException(status_code=401, detail=session.get("error", "Login fehlgeschlagen"))
+    if status == "done":
+        client = session["client"]
+        current_user.garmin_jwt_web = client.di_token
+        current_user.garmin_sso_guid = client.di_refresh_token or ""
+        db.commit()
+        _garmin_login_sessions.pop(uid, None)
+        return {"status": "ok"}
+    if status == "needs_mfa":
+        return {"status": "needs_mfa"}
+
+    raise HTTPException(status_code=408, detail="Login Timeout – bitte nochmal versuchen")
+
+
+@app.post("/api/auth/garmin/mfa")
+def garmin_login_mfa(
+    data: dict,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Submit MFA code to complete Garmin login."""
+    uid = current_user.id
+    session = _garmin_login_sessions.get(uid)
+    if not session or session.get("status") != "needs_mfa":
+        raise HTTPException(status_code=400, detail="Kein Login ausstehend")
+
+    code = data.get("code", "").strip()
+    if not code:
+        raise HTTPException(status_code=400, detail="MFA-Code fehlt")
+
+    client = session["client"]
+    try:
+        client.resume_login(None, code)
+        current_user.garmin_jwt_web = client.di_token
+        current_user.garmin_sso_guid = client.di_refresh_token or ""
+        db.commit()
+        _garmin_login_sessions.pop(uid, None)
+        return {"status": "ok"}
+    except Exception as e:
+        _garmin_login_sessions.pop(uid, None)
+        raise HTTPException(status_code=401, detail=f"MFA fehlgeschlagen: {e}")
+
+
+# In-memory Garmin login sessions (user_id -> session dict)
+_garmin_login_sessions: dict = {}
+
+
 @app.post("/api/auth/garmin-browser-token")
 def save_garmin_browser_token(
     data: dict,
@@ -818,15 +910,20 @@ def sync_garmin(current_user: User = Depends(get_current_user), db: Session = De
     # DI Token Sync (garmin_health_data)
     if current_user.garmin_jwt_web:
         try:
-            acts = sync_activities_browser(current_user.id, current_user.garmin_jwt_web, current_user.garmin_sso_guid or "", days=30)
-            health = sync_health_browser(current_user.id, current_user.garmin_jwt_web, current_user.garmin_sso_guid or "", days=7)
+            acts, new_token, new_refresh = sync_activities_browser(current_user.id, current_user.garmin_jwt_web, current_user.garmin_sso_guid or "", days=30)
+            health = sync_health_browser(current_user.id, new_token or current_user.garmin_jwt_web, new_refresh or current_user.garmin_sso_guid or "", days=7)
+            # Persist refreshed tokens back to DB
+            if new_token and new_token != current_user.garmin_jwt_web:
+                current_user.garmin_jwt_web = new_token
+                current_user.garmin_sso_guid = new_refresh or current_user.garmin_sso_guid
+                db.commit()
             return {"status": "ok", "activities_synced": acts, "health_days_synced": health, "method": "di_token"}
         except Exception as e:
             err_str = str(e)
             if "unauthorized" in err_str.lower() or "authentication" in err_str.lower() or "abgelaufen" in err_str.lower():
                 current_user.garmin_jwt_web = ""
                 db.commit()
-                raise HTTPException(status_code=503, detail="Garmin Token abgelaufen. Bitte garmin_interactive_login.py erneut ausführen.")
+                raise HTTPException(status_code=503, detail="Garmin Token abgelaufen. Bitte Garmin unter Einstellungen neu verbinden.")
             raise HTTPException(status_code=500, detail=f"Sync fehlgeschlagen: {err_str}")
 
     if not current_user.garmin_email:

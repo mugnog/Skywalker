@@ -157,8 +157,10 @@ def _ghd_client_from_tokens(di_token: str, di_refresh: str) -> "GarminClient":
     return client
 
 
-def sync_activities_browser(user_id: int, di_token: str, di_refresh: str, days: int = 30) -> int:
-    """Sync activities using garmin_health_data GarminClient (connectapi.garmin.com)."""
+def sync_activities_browser(user_id: int, di_token: str, di_refresh: str, days: int = 30):
+    """Sync activities using garmin_health_data GarminClient (connectapi.garmin.com).
+    Returns (count, new_di_token, new_di_refresh) so caller can persist refreshed tokens.
+    """
     from datetime import date, timedelta
 
     today = date.today()
@@ -204,7 +206,7 @@ def sync_activities_browser(user_id: int, di_token: str, di_refresh: str, days: 
         writer = csv_mod.writer(f)
         writer.writerow(HEADERS)
         writer.writerows(rows)
-    return len(rows)
+    return len(rows), client.di_token, client.di_refresh_token
 
 
 def sync_health_browser(user_id: int, di_token: str, di_refresh: str, days: int = 7) -> int:

@@ -1,4 +1,4 @@
-"""
+w"""
 intervals.icu API integration – fetch planned workouts and activities.
 """
 import os
