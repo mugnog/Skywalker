@@ -251,14 +251,18 @@ def sync_health_browser(user_id: int, client, days: int = 7) -> int:
             except Exception:
                 pass
 
-            # Sleep
+            # Sleep + HRV (avgOvernightHrv and hrvStatus are root-level fields in sleep response)
+            hrv_status = None
             try:
                 sleep_data = client.get_sleep_data(day_str)
-                sl = sleep_data.get("dailySleepDTO", {}) if isinstance(sleep_data, dict) else {}
-                t = sl.get("sleepTimeSeconds")
-                sleep_total = round(t / 3600, 2) if t else None
-                sc = sl.get("sleepScores", {})
-                sleep_score = sc.get("overall", {}).get("value") if sc else None
+                if isinstance(sleep_data, dict):
+                    sl = sleep_data.get("dailySleepDTO", {}) or {}
+                    t = sl.get("sleepTimeSeconds")
+                    sleep_total = round(t / 3600, 2) if t else None
+                    sc = sl.get("sleepScores", {})
+                    sleep_score = sc.get("overall", {}).get("value") if sc else None
+                    hrv_avg = sleep_data.get("avgOvernightHrv")
+                    hrv_status = sleep_data.get("hrvStatus")
             except Exception:
                 pass
 
@@ -266,7 +270,7 @@ def sync_health_browser(user_id: int, client, days: int = 7) -> int:
                 day_str, None, None, None, None,
                 sleep_total, None, None, sleep_score,
                 rhr, None, None, None, None, None,
-                None, None, None, hrv_avg,
+                None, None, hrv_status, hrv_avg,
                 None, None, steps, None, None, None, ""
             ])
             synced += 1
