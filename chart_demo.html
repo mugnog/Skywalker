@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Skywalker Trends</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #111; color: #fff; font-family: -apple-system, BlinkMacSystemFont, sans-serif; padding: 20px; }
+  h1 { color: #00C853; margin-bottom: 20px; font-size: 22px; }
+  .kpi-row { display: flex; gap: 12px; margin-bottom: 16px; }
+  .kpi { flex: 1; background: #1a1a1a; border-radius: 14px; padding: 16px; text-align: center; border: 1px solid #222; }
+  .kpi-val { font-size: 32px; font-weight: 800; }
+  .kpi-label { font-size: 12px; color: #555; margin-top: 4px; }
+  .kpi-trend { font-size: 13px; margin-top: 4px; }
+  .section { background: #1a1a1a; border-radius: 16px; padding: 18px; margin-bottom: 16px; border: 1px solid #222; }
+  .section-title { color: #888; font-size: 12px; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 14px; }
+  .chart-wrap { position: relative; width: 100%; }
+  .legend { display: flex; gap: 16px; margin-top: 12px; flex-wrap: wrap; }
+  .legend-item { display: flex; align-items: center; gap: 6px; font-size: 12px; color: #888; }
+  .legend-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+  .tsb-label { display: flex; gap: 10px; margin-bottom: 8px; }
+  .tsb-badge { display: flex; align-items: center; gap: 5px; font-size: 12px; }
+  .dot { width: 9px; height: 9px; border-radius: 2px; }
+  .divider { height: 1px; background: #2a2a2a; margin: 14px 0; }
+  .donut-row { display: flex; align-items: center; gap: 24px; }
+  .donut-wrap { flex-shrink: 0; }
+  .bar-list { flex: 1; display: flex; flex-direction: column; gap: 14px; }
+  .bar-row { display: flex; flex-direction: column; gap: 5px; }
+  .bar-header { display: flex; justify-content: space-between; }
+  .bar-label { font-size: 14px; color: #ccc; display: flex; align-items: center; gap: 7px; }
+  .bar-pct { font-size: 17px; font-weight: 800; }
+  .bar-track { background: #252525; border-radius: 6px; height: 9px; }
+  .bar-fill { height: 100%; border-radius: 6px; }
+  .seiler-badge { margin-top: 14px; padding: 10px 14px; background: #222; border-radius: 10px; display: flex; justify-content: space-between; align-items: center; }
+</style>
+</head>
+<body>
+
+<h1>📈 Trends</h1>
+
+<!-- KPIs -->
+<div class="kpi-row">
+  <div class="kpi">
+    <div class="kpi-val" style="color:#00C853">237W</div>
+    <div class="kpi-label">FTP</div>
+    <div class="kpi-trend" style="color:#00C853">▲ +7W</div>
+  </div>
+  <div class="kpi">
+    <div class="kpi-val" style="color:#00f2ff">52.1</div>
+    <div class="kpi-label">VO2 Max</div>
+    <div class="kpi-trend" style="color:#00C853">▲ +0.4</div>
+  </div>
+  <div class="kpi">
+    <div class="kpi-val" style="color:#FF9800">44</div>
+    <div class="kpi-label">CTL heute</div>
+    <div class="kpi-trend" style="color:#00C853">▲ +12 Wo.</div>
+  </div>
+</div>
+
+<!-- PMC -->
+<div class="section">
+  <div class="section-title">Performance Management (90 Tage)</div>
+  <div class="chart-wrap" style="height:180px">
+    <canvas id="pmcChart"></canvas>
+  </div>
+  <div class="legend" style="margin-top:10px; margin-bottom:4px;">
+    <div class="legend-item"><div class="legend-dot" style="background:#00C853"></div>CTL 44 – Fitness</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#FF6D00"></div>ATL 48 – Müdigkeit</div>
+  </div>
+  <div class="divider"></div>
+  <div class="tsb-label">
+    <span style="font-size:11px;color:#555;text-transform:uppercase;letter-spacing:1px;">TSB – Form</span>
+    <div class="tsb-badge"><div class="dot" style="background:#00C853"></div><span style="color:#00C853;font-size:12px;">frisch</span></div>
+    <div class="tsb-badge"><div class="dot" style="background:#FF1744"></div><span style="color:#FF1744;font-size:12px;">müde</span></div>
+  </div>
+  <div class="chart-wrap" style="height:80px">
+    <canvas id="tsbChart"></canvas>
+  </div>
+</div>
+
+<!-- Schlaf -->
+<div class="section">
+  <div class="section-title">Schlafqualität (30 Tage)</div>
+  <div class="chart-wrap" style="height:140px">
+    <canvas id="sleepChart"></canvas>
+  </div>
+</div>
+
+<!-- Wöchentliches Volumen -->
+<div class="section">
+  <div class="section-title">Wöchentliches Volumen (TSS)</div>
+  <div class="chart-wrap" style="height:160px">
+    <canvas id="tssChart"></canvas>
+  </div>
+</div>
+
+<!-- Trainingsverteilung -->
+<div class="section">
+  <div class="section-title">Trainingsverteilung – letzte 4 Wochen</div>
+  <div class="donut-row">
+    <div class="donut-wrap">
+      <canvas id="donutChart" width="150" height="150"></canvas>
+    </div>
+    <div class="bar-list">
+      <div class="bar-row">
+        <div class="bar-header">
+          <div class="bar-label"><div class="dot" style="background:#00C853;border-radius:3px;width:12px;height:12px;"></div>Zone 2</div>
+          <div class="bar-pct" style="color:#00C853">68%</div>
+        </div>
+        <div class="bar-track"><div class="bar-fill" style="width:68%;background:#00C853;"></div></div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-header">
+          <div class="bar-label"><div class="dot" style="background:#FFD600;border-radius:3px;width:12px;height:12px;"></div>Sweet Spot</div>
+          <div class="bar-pct" style="color:#FFD600">22%</div>
+        </div>
+        <div class="bar-track"><div class="bar-fill" style="width:22%;background:#FFD600;"></div></div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-header">
+          <div class="bar-label"><div class="dot" style="background:#FF1744;border-radius:3px;width:12px;height:12px;"></div>High Intensity</div>
+          <div class="bar-pct" style="color:#FF1744">10%</div>
+        </div>
+        <div class="bar-track"><div class="bar-fill" style="width:10%;background:#FF1744;"></div></div>
+      </div>
+    </div>
+  </div>
+  <div class="seiler-badge">
+    <span style="font-size:12px;color:#555;">Ziel: 70 / 20 / 10 (Seiler)</span>
+    <span style="font-size:13px;color:#00C853;font-weight:700;">✓ Fast perfekt</span>
+  </div>
+</div>
+
+<script>
+Chart.defaults.color = '#555';
+Chart.defaults.font.family = '-apple-system, BlinkMacSystemFont, sans-serif';
+
+// Daten generieren (90 Tage simuliert)
+const days = 90;
+const labels = [];
+const ctlData = [], atlData = [], tsbData = [];
+let ctl = 5, atl = 5;
+for (let i = 0; i < days; i++) {
+  const d = new Date(); d.setDate(d.getDate() - (days - i));
+  if (i % 7 === 0 || i % 14 === 0) labels.push(`${d.getDate()}.${d.getMonth()+1}.`);
+  else labels.push('');
+  const tss = i < 10 ? 0 : (Math.random() > 0.3 ? 40 + Math.random() * 80 : 0);
+  ctl = ctl + (tss - ctl) / 42;
+  atl = atl + (tss - atl) / 7;
+  ctlData.push(+ctl.toFixed(1));
+  atlData.push(+atl.toFixed(1));
+  tsbData.push(+(ctl - atl).toFixed(1));
+}
+
+// PMC Chart
+const pmcCtx = document.getElementById('pmcChart').getContext('2d');
+new Chart(pmcCtx, {
+  type: 'line',
+  data: {
+    labels,
+    datasets: [
+      {
+        label: 'ATL',
+        data: atlData,
+        borderColor: '#FF6D00',
+        borderWidth: 2,
+        backgroundColor: 'rgba(255,109,0,0.15)',
+        fill: true,
+        tension: 0,
+        pointRadius: 0,
+        pointHoverRadius: 4,
+      },
+      {
+        label: 'CTL',
+        data: ctlData,
+        borderColor: '#00C853',
+        borderWidth: 2.5,
+        backgroundColor: 'rgba(0,200,83,0.2)',
+        fill: true,
+        tension: 0,
+        pointRadius: 0,
+        pointHoverRadius: 4,
+      },
+    ]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    interaction: { mode: 'index', intersect: false },
+    plugins: { legend: { display: false }, tooltip: {
+      backgroundColor: '#222', borderColor: '#333', borderWidth: 1,
+      callbacks: { label: ctx => ` ${ctx.dataset.label}: ${ctx.parsed.y}` }
+    }},
+    scales: {
+      x: { grid: { color: '#1e1e1e' }, ticks: { maxRotation: 0, font: { size: 10 } } },
+      y: { grid: { color: '#1e1e1e' }, ticks: { font: { size: 10 } } }
+    }
+  }
+});
+
+// TSB Chart (Balken grün/rot)
+const tsbCtx = document.getElementById('tsbChart').getContext('2d');
+new Chart(tsbCtx, {
+  type: 'bar',
+  data: {
+    labels,
+    datasets: [{
+      data: tsbData,
+      backgroundColor: tsbData.map(v => v >= 0 ? 'rgba(0,200,83,0.75)' : 'rgba(255,23,68,0.7)'),
+      borderRadius: 2,
+      borderSkipped: false,
+    }]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { display: false }, tooltip: {
+      backgroundColor: '#222', borderColor: '#333', borderWidth: 1,
+      callbacks: { label: ctx => ` TSB: ${ctx.parsed.y > 0 ? '+' : ''}${ctx.parsed.y}` }
+    }},
+    scales: {
+      x: { display: false },
+      y: { grid: { color: '#1e1e1e' }, ticks: { font: { size: 9 } } }
+    }
+  }
+});
+
+// TSS wöchentlich
+const weeks = ['KW8','KW9','KW10','KW11','KW12','KW13','KW14','KW15','KW16','KW17','KW18','KW19'];
+const tssVals = [85, 140, 175, 210, 195, 260, 310, 270, 340, 370, 390, 412];
+const tssCtx = document.getElementById('tssChart').getContext('2d');
+new Chart(tssCtx, {
+  type: 'bar',
+  data: {
+    labels: weeks,
+    datasets: [{
+      data: tssVals,
+      backgroundColor: tssVals.map((v, i) => i === tssVals.length-1
+        ? '#00C853'
+        : 'rgba(0,200,83,0.5)'),
+      borderRadius: 5,
+    }]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        backgroundColor: '#222', borderColor: '#333', borderWidth: 1,
+        callbacks: { label: ctx => ` TSS: ${ctx.parsed.y}` }
+      },
+      annotation: { annotations: {
+        ziel: { type: 'line', yMin: 400, yMax: 400,
+          borderColor: 'rgba(255,109,0,0.5)', borderWidth: 1, borderDash: [5,5],
+          label: { display: true, content: 'Ziel 400', color: '#FF6D00', font: { size: 10 } }
+        }
+      }}
+    },
+    scales: {
+      x: { grid: { display: false }, ticks: { font: { size: 11 } } },
+      y: { grid: { color: '#1e1e1e' }, ticks: { font: { size: 10 } } }
+    }
+  }
+});
+
+// Schlaf
+const sleepLabels = [], sleepVals = [];
+for (let i = 29; i >= 0; i--) {
+  const d = new Date(); d.setDate(d.getDate() - i);
+  sleepLabels.push(`${d.getDate()}.${d.getMonth()+1}.`);
+  sleepVals.push(Math.round(50 + Math.random() * 45));
+}
+const sleepCtx = document.getElementById('sleepChart').getContext('2d');
+new Chart(sleepCtx, {
+  type: 'line',
+  data: {
+    labels: sleepLabels,
+    datasets: [{
+      data: sleepVals,
+      borderColor: '#9C27B0',
+      borderWidth: 2.5,
+      backgroundColor: 'rgba(156,39,176,0.2)',
+      fill: true,
+      tension: 0.3,
+      pointRadius: 0,
+      pointHoverRadius: 6,
+      pointHoverBackgroundColor: '#9C27B0',
+      pointHoverBorderColor: '#fff',
+      pointHoverBorderWidth: 2,
+    }]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    interaction: { mode: 'index', intersect: false },
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        backgroundColor: '#222',
+        borderColor: '#9C27B0',
+        borderWidth: 1,
+        padding: 10,
+        callbacks: {
+          title: ctx => `📅 ${ctx[0].label}`,
+          label: ctx => {
+            const v = ctx.parsed.y;
+            const emoji = v >= 75 ? '😴 Gut' : v >= 50 ? '😐 OK' : '😟 Schlecht';
+            return `  Sleep Score: ${v}  ${emoji}`;
+          }
+        }
+      }
+    },
+    scales: {
+      x: {
+        grid: { color: '#1e1e1e' },
+        ticks: {
+          font: { size: 10 },
+          maxRotation: 0,
+          callback: (val, idx) => idx % 5 === 0 ? sleepLabels[idx] : ''
+        }
+      },
+      y: {
+        min: 0, max: 100,
+        grid: { color: '#1e1e1e' },
+        ticks: { font: { size: 10 } }
+      }
+    }
+  }
+});
+
+// Donut
+const donutCtx = document.getElementById('donutChart').getContext('2d');
+new Chart(donutCtx, {
+  type: 'doughnut',
+  data: {
+    datasets: [{
+      data: [68, 22, 10],
+      backgroundColor: ['#00C853','#FFD600','#FF1744'],
+      borderWidth: 0,
+      hoverOffset: 4,
+    }]
+  },
+  options: {
+    cutout: '68%',
+    plugins: {
+      legend: { display: false },
+      tooltip: { callbacks: { label: ctx => ` ${ctx.parsed}%` } }
+    }
+  },
+  plugins: [{
+    id: 'centerText',
+    afterDraw(chart) {
+      const { ctx, chartArea: { width, height, left, top } } = chart;
+      ctx.save();
+      ctx.font = 'bold 22px -apple-system, sans-serif';
+      ctx.fillStyle = '#fff';
+      ctx.textAlign = 'center';
+      ctx.fillText('68%', left + width/2, top + height/2 - 6);
+      ctx.font = '11px -apple-system, sans-serif';
+      ctx.fillStyle = '#555';
+      ctx.fillText('Zone 2', left + width/2, top + height/2 + 14);
+      ctx.restore();
+    }
+  }]
+});
+</script>
+</body>
+</html>
